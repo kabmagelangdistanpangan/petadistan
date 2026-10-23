@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Google Sheets (gviz CSV) and Google Drive GeoJSON are fetched through public proxy routes under src/routes/api/public/ to avoid browser CORS; they only accept validated Google IDs to prevent open-proxy abuse.
+- The map uses MapLibre (OpenFreeMap positron + Esri imagery raster toggled by visibility) and is lazy-loaded behind ClientOnly because it touches browser APIs.
