@@ -99,7 +99,7 @@ function Index() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       <aside className="flex w-[360px] shrink-0 flex-col border-r border-border bg-sidebar">
-        <header className="bg-primary px-5 py-4 text-primary-foreground">
+        <header className="bg-primary px-4 py-3 text-primary-foreground">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-foreground/15"><Layers className="h-5 w-5" /></div>
@@ -131,7 +131,7 @@ function Index() {
           </div>
         )}
 
-        <div className="border-b border-border p-4">
+        <div className="border-b border-border p-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari peta…"
@@ -144,7 +144,7 @@ function Index() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="flex-1 overflow-y-auto px-2 py-2">
           {sheet.isLoading && <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Membaca Google Sheets…</div>}
           {sheet.error && <div className="m-2 flex gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{(sheet.error as Error).message}</div>}
           {!sheet.isLoading && !sheet.error && groups.length === 0 && <p className="p-4 text-sm text-muted-foreground">Tidak ada peta ditemukan.</p>}
@@ -174,7 +174,7 @@ function Index() {
                             <>
                               <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: a.color }} />
                               <button aria-label={a.hidden ? "Tampilkan layer" : "Sembunyikan layer"} title={a.hidden ? "Tampilkan" : "Sembunyikan"}
-                                onClick={(e) => { e.preventDefault(); patch(r.id, { hidden: !a.hidden }); }}
+                                onClick={(e) => { e.preventDefault(); patch(r.id, { hidden: !a.hidden }); if (a.hidden) setFocus({ id: r.id, n: Date.now() }); }}
                                 className="shrink-0 text-muted-foreground hover:text-primary">
                                 {a.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                               </button>
