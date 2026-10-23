@@ -65,6 +65,9 @@ function Index() {
     return Object.entries(g).sort(([a], [b]) => a.localeCompare(b));
   }, [rows, q]);
 
+  const patch = (id: string, v: Partial<Active>) =>
+    setActive((a) => (a[id] ? { ...a, [id]: { ...a[id], ...v } } : a));
+
   const toggle = async (r: MapRow) => {
     if (active[r.id]) {
       setActive(({ [r.id]: _, ...rest }) => rest);
@@ -75,17 +78,17 @@ function Index() {
     setActive((a) => ({ ...a, [r.id]: { status: "loading", loaded: 0, total: 0, color } }));
     try {
       const data = await downloadGeoJSON(r.link, (loaded, total) =>
-        setActive((a) => (a[r.id] ? { ...a, [r.id]: { ...a[r.id], loaded, total } } : a)));
-      setActive((a) => (a[r.id] ? { ...a, [r.id]: { ...a[r.id], status: "ready", data } } : a));
+        patch(r.id, { loaded, total }));
+      patch(r.id, { status: "ready", data });
       setFocus({ id: r.id, n: Date.now() });
     } catch (e) {
-      setActive((a) => (a[r.id] ? { ...a, [r.id]: { ...a[r.id], status: "error", error: (e as Error).message } } : a));
+      patch(r.id, { status: "error", error: (e as Error).message });
     }
   };
 
   const mapLayers: MapLayer[] = rows
     .filter((r) => active[r.id]?.status === "ready")
-    .map((r) => ({ id: r.id, data: active[r.id].data, color: active[r.id].color, nama: r.nama, keterangan: r.keterangan }));
+    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan }));
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
