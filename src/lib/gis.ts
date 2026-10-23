@@ -85,10 +85,10 @@ export async function downloadGeoJSON(link: string, onProgress: (loaded: number,
 }
 
 export function bbox(geo: any): [number, number, number, number] | null {
-  let b = [Infinity, Infinity, -Infinity, -Infinity];
+  let b: number[] = [Infinity, Infinity, -Infinity, -Infinity];
   const walk = (c: any) => {
     if (typeof c[0] === "number") {
-      b = [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[0]), Math.max(b[3], c[1])];
+      b = [Math.min(b[0]!, c[0]), Math.min(b[1]!, c[1]), Math.max(b[2]!, c[0]), Math.max(b[3]!, c[1])];
     } else c.forEach(walk);
   };
   const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
@@ -98,5 +98,5 @@ export function bbox(geo: any): [number, number, number, number] | null {
     if (g.type === "GeometryCollection") g.geometries.forEach((x: any) => walk(x.coordinates));
     else if (g.coordinates) walk(g.coordinates);
   }
-  return isFinite(b[0]) ? (b as [number, number, number, number]) : null;
+  return isFinite(b[0]!) ? (b as [number, number, number, number]) : null;
 }
