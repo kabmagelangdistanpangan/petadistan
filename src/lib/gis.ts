@@ -1,3 +1,5 @@
+import proj4 from "proj4";
+
 export type MapRow = { id: string; nama: string; link: string; kategori: string; keterangan: string };
 
 export const DEFAULT_SHEET =
@@ -81,7 +83,7 @@ export async function downloadGeoJSON(link: string, onProgress: (loaded: number,
   const json = JSON.parse(await blob.text());
   if (!json || (json.type !== "FeatureCollection" && json.type !== "Feature"))
     throw new Error("File bukan GeoJSON yang valid");
-  return json;
+  return toWGS84(json);
 }
 
 export function bbox(geo: any): [number, number, number, number] | null {
@@ -99,4 +101,28 @@ export function bbox(geo: any): [number, number, number, number] | null {
     else if (g.coordinates) walk(g.coordinates);
   }
   return isFinite(b[0]!) ? (b as [number, number, number, number]) : null;
+}
+
+// Projected files (e.g. UTM meters) are converted to lon/lat. Without a crs, UTM 49S (Magelang area) is assumed.
+export function toWGS84(geo: any) {
+  const b = bbox(geo);
+  if (!b || (Math.abs(b[0]) <= 180 && Math.abs(b[2]) <= 180 && Math.abs(b[1]) <= 90 && Math.abs(b[3]) <= 90)) return geo;
+  const name: string = geo.crs?.properties?.name ?? "";
+  const code = Number(name.match(/(\d{4,5})\s*$/)?.[1] ?? 32749);
+  let def = "";
+  if (code >= 32601 && code <= 32660) def = `+proj=utm +zone=${code - 32600} +datum=WGS84 +units=m +no_defs`;
+  else if (code >= 32701 && code <= 32760) def = `+proj=utm +zone=${code - 32700} +south +datum=WGS84 +units=m +no_defs`;
+  else if (code === 3857 || code === 900913) def = "EPSG:3857";
+  else def = "+proj=utm +zone=49 +south +datum=WGS84 +units=m +no_defs";
+  const t = proj4(def, "EPSG:4326");
+  const walk = (c: any): any => (typeof c[0] === "number" ? t.forward([c[0], c[1]]) : c.map(walk));
+  const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
+  for (const f of feats) {
+    const g = f?.geometry;
+    if (!g) continue;
+    if (g.type === "GeometryCollection") g.geometries.forEach((x: any) => (x.coordinates = walk(x.coordinates)));
+    else if (g.coordinates) g.coordinates = walk(g.coordinates);
+  }
+  delete geo.crs;
+  return geo;
 }
