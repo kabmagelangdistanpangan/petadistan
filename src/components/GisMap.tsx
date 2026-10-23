@@ -6,7 +6,7 @@ import { bbox } from "@/lib/gis";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string };
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -29,7 +29,7 @@ export default function GisMap({
     const want = new Set(layers.map((l) => l.id));
     for (const id of [...added.current]) {
       if (!want.has(id)) {
-        ["fill", "line", "pt"].forEach((k) => map.getLayer(`lyr-${id}-${k}`) && map.removeLayer(`lyr-${id}-${k}`));
+        ["lbl", "fill", "line", "pt"].forEach((k) => map.getLayer(`lyr-${id}-${k}`) && map.removeLayer(`lyr-${id}-${k}`));
         map.getSource(`src-${id}`) && map.removeSource(`src-${id}`);
         added.current.delete(id);
       }
@@ -46,6 +46,9 @@ export default function GisMap({
       map.addLayer({ id: `lyr-${l.id}-pt`, type: "circle", source: `src-${l.id}`,
         filter: ["==", ["geometry-type"], "Point"],
         paint: { "circle-color": l.color, "circle-radius": 6, "circle-opacity": 0.85, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } });
+      map.addLayer({ id: `lyr-${l.id}-lbl`, type: "symbol", source: `src-${l.id}`,
+        layout: { "text-field": "", "text-font": ["Noto Sans Regular"], "text-size": 11, "symbol-placement": "point", "text-max-width": 8 },
+        paint: { "text-color": "#0f172a", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } });
       added.current.add(l.id);
     }
     for (const l of layers) {
@@ -53,6 +56,11 @@ export default function GisMap({
       const vis = l.visible === false ? "none" : "visible";
       for (const k of ["fill", "line", "pt"])
         map.getLayer(`lyr-${l.id}-${k}`) && map.setLayoutProperty(`lyr-${l.id}-${k}`, "visibility", vis);
+      const lbl = `lyr-${l.id}-lbl`;
+      if (map.getLayer(lbl)) {
+        map.setLayoutProperty(lbl, "visibility", l.visible === false || !l.label ? "none" : "visible");
+        map.setLayoutProperty(lbl, "text-field", l.label ? ["to-string", ["coalesce", ["get", l.label], ""]] : "");
+      }
     }
   };
 
