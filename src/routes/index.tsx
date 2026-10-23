@@ -66,7 +66,7 @@ function Index() {
   }, [rows, q]);
 
   const patch = (id: string, v: Partial<Active>) =>
-    setActive((a) => (a[id] ? { ...a, [id]: { ...a[id], ...v } } : a));
+    setActive((a) => (a[id] ? { ...a, [id]: { ...a[id]!, ...v } as Active } : a));
 
   const toggle = async (r: MapRow) => {
     if (active[r.id]) {
