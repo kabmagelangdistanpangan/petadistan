@@ -102,7 +102,7 @@ function Index() {
 
   const mapLayers: MapLayer[] = rows
     .filter((r) => active[r.id]?.status === "ready")
-    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden }));
+    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden, label: active[r.id]!.label }));
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {

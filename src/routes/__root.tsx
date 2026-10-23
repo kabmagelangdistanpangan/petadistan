@@ -78,7 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "WebGIS Eksekutif" },
+      { title: "WebGIS Eksekutif — Distan dan Pangan Kab. Magelang" },
       { name: "description", content: "Dashboard peta interaktif untuk pimpinan" },
       { name: "author", content: "Lovable" },
       
