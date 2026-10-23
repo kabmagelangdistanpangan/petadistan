@@ -5,10 +5,10 @@ export type MapRow = { id: string; nama: string; link: string; kategori: string;
 export const DEFAULT_SHEET =
   "https://docs.google.com/spreadsheets/d/1bwY_CkNt4DSdfZJWI4c69uuX6WVyHgm1cwKXPMMy1TU/edit?usp=sharing";
 
-// Corporate/pastel data palette for map layers.
+// Bright data palette for map layers.
 export const PALETTE = [
-  "#3b6ea5", "#e07a5f", "#81b29a", "#f2cc8f", "#9b8ec4", "#5fa8d3",
-  "#d4a5a5", "#6d9886", "#e9a46a", "#7d8cc4", "#c38d9e", "#4ea8a0",
+  "#f43f5e", "#0ea5e9", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899",
+  "#14b8a6", "#f97316", "#3b82f6", "#84cc16", "#eab308", "#ef4444",
 ];
 
 export function parseCSV(text: string): string[][] {
@@ -65,7 +65,18 @@ export function driveId(url: string): string | null {
   return m?.[1] ?? null;
 }
 
-export async function downloadGeoJSON(link: string, onProgress: (loaded: number, total: number) => void) {
+// Cache per link so uncheck/recheck and visibility toggles never re-download.
+const geoCache = new Map<string, Promise<any>>();
+
+export function downloadGeoJSON(link: string, onProgress: (loaded: number, total: number) => void) {
+  const hit = geoCache.get(link);
+  if (hit) return hit;
+  const p = fetchGeoJSON(link, onProgress).catch((e) => { geoCache.delete(link); throw e; });
+  geoCache.set(link, p);
+  return p;
+}
+
+async function fetchGeoJSON(link: string, onProgress: (loaded: number, total: number) => void) {
   const id = driveId(link);
   const res = await fetch(id ? `/api/public/drive?id=${id}` : link);
   if (!res.ok) throw new Error((await res.text()) || `Gagal mengunduh (${res.status})`);

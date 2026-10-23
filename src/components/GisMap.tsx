@@ -6,7 +6,7 @@ import { bbox } from "@/lib/gis";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean };
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -47,6 +47,12 @@ export default function GisMap({
         filter: ["==", ["geometry-type"], "Point"],
         paint: { "circle-color": l.color, "circle-radius": 6, "circle-opacity": 0.85, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } });
       added.current.add(l.id);
+    }
+    for (const l of layers) {
+      if (!added.current.has(l.id)) continue;
+      const vis = l.visible === false ? "none" : "visible";
+      for (const k of ["fill", "line", "pt"])
+        map.getLayer(`lyr-${l.id}-${k}`) && map.setLayoutProperty(`lyr-${l.id}-${k}`, "visibility", vis);
     }
   };
 
