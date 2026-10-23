@@ -74,7 +74,7 @@ function Index() {
       return;
     }
     const used = new Set(Object.values(active).map((a) => a.color));
-    const color = PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length];
+    const color = PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length]!;
     setActive((a) => ({ ...a, [r.id]: { status: "loading", loaded: 0, total: 0, color } }));
     try {
       const data = await downloadGeoJSON(r.link, (loaded, total) =>
