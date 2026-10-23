@@ -57,12 +57,12 @@ export function parseSheetUrl(url: string): { id: string; gid: string } | null {
   const m = url.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]+)/);
   if (!m) return null;
   const g = url.match(/[#&?]gid=(\d+)/);
-  return { id: m[1], gid: g ? g[1] : "" };
+  return { id: m[1]!, gid: g?.[1] ?? "" };
 }
 
 export function driveId(url: string): string | null {
   const m = url.match(/\/d\/([A-Za-z0-9_-]{10,})/) || url.match(/[?&]id=([A-Za-z0-9_-]{10,})/);
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 }
 
 export async function downloadGeoJSON(link: string, onProgress: (loaded: number, total: number) => void) {
