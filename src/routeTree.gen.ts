@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicDriveRouteImport } from './routes/api/public/drive'
+import { Route as ApiPublicSheetRouteImport } from './routes/api/public/sheet'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicDriveRoute = ApiPublicDriveRouteImport.update({
+  id: '/api/public/drive',
+  path: '/api/public/drive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSheetRoute = ApiPublicSheetRouteImport.update({
+  id: '/api/public/sheet',
+  path: '/api/public/sheet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/drive': typeof ApiPublicDriveRoute
+  '/api/public/sheet': typeof ApiPublicSheetRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/drive': typeof ApiPublicDriveRoute
+  '/api/public/sheet': typeof ApiPublicSheetRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/drive': typeof ApiPublicDriveRoute
+  '/api/public/sheet': typeof ApiPublicSheetRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/public/drive' | '/api/public/sheet'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/drive' | '/api/public/sheet'
+  id: '__root__' | '/' | '/api/public/drive' | '/api/public/sheet'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicDriveRoute: typeof ApiPublicDriveRoute
+  ApiPublicSheetRoute: typeof ApiPublicSheetRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/drive': {
+      id: '/api/public/drive'
+      path: '/api/public/drive'
+      fullPath: '/api/public/drive'
+      preLoaderRoute: typeof ApiPublicDriveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/sheet': {
+      id: '/api/public/sheet'
+      path: '/api/public/sheet'
+      fullPath: '/api/public/sheet'
+      preLoaderRoute: typeof ApiPublicSheetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicDriveRoute: ApiPublicDriveRoute,
+  ApiPublicSheetRoute: ApiPublicSheetRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

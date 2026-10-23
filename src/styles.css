@@ -64,12 +64,12 @@
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.22 0.03 255);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
+  --primary: oklch(0.33 0.09 255);
   --primary-foreground: oklch(0.984 0.003 247.858);
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
@@ -81,13 +81,13 @@
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(0.929 0.013 255.508);
   --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --ring: oklch(0.55 0.1 255);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
+  --sidebar: oklch(0.985 0.003 250);
   --sidebar-foreground: oklch(0.129 0.042 264.695);
   --sidebar-primary: oklch(0.208 0.042 265.755);
   --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
@@ -138,7 +138,18 @@
   }
 
   body {
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
 }
+
+.gis-popup .maplibregl-popup-content { border-radius: 10px; padding: 12px 14px; box-shadow: 0 10px 30px -10px oklch(0 0 0 / 0.3); font-family: "IBM Plex Sans", sans-serif; }
+.gis-pop-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; color: var(--primary); margin-bottom: 6px; padding-right: 14px; }
+.gis-pop-head span { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.gis-pop p { font-size: 12px; color: var(--muted-foreground); margin-bottom: 8px; }
+.gis-pop-tbl { max-height: 220px; overflow-y: auto; border-top: 1px solid var(--border); }
+.gis-pop table { width: 100%; font-size: 11.5px; border-collapse: collapse; }
+.gis-pop th { text-align: left; font-weight: 500; color: var(--muted-foreground); padding: 4px 8px 4px 0; vertical-align: top; white-space: nowrap; }
+.gis-pop td { padding: 4px 0; color: var(--foreground); word-break: break-word; }
+.gis-pop tr + tr { border-top: 1px solid var(--border); }
