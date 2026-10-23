@@ -2,19 +2,20 @@ import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
-  Search, Settings, RefreshCw, Layers, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff,
 } from "lucide-react";
 import { DEFAULT_SHEET, PALETTE, downloadGeoJSON, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import type { MapLayer } from "@/components/GisMap";
+import logo from "@/assets/logo-magelang.png";
 
 const GisMap = lazy(() => import("@/components/GisMap"));
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "WebGIS Eksekutif — Distanpangan Kab. Magelang" },
+      { title: "WebGIS Eksekutif — Distan dan Pangan Kab. Magelang" },
       { name: "description", content: "Dashboard peta interaktif untuk pimpinan: data real-time dari Google Sheets dan GeoJSON Google Drive." },
-      { property: "og:title", content: "WebGIS Eksekutif — Distanpangan Kab. Magelang" },
+      { property: "og:title", content: "WebGIS Eksekutif — Distan dan Pangan Kab. Magelang" },
       { property: "og:description", content: "Dashboard peta interaktif untuk pimpinan dengan layer GeoJSON otomatis." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -23,9 +24,22 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Active = { status: "loading" | "ready" | "error"; loaded: number; total: number; color: string; data?: any; error?: string; hidden?: boolean };
+type Active = { status: "loading" | "ready" | "error"; loaded: number; total: number; color: string; data?: any; error?: string; hidden?: boolean; open?: boolean; label?: string | undefined };
 
 function fmt(n: number) { return n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`; }
+
+const keyCache = new WeakMap<object, string[]>();
+function propKeys(geo: any): string[] {
+  if (!geo) return [];
+  const hit = keyCache.get(geo);
+  if (hit) return hit;
+  const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
+  const s = new Set<string>();
+  for (const f of feats.slice(0, 200)) Object.keys(f?.properties ?? {}).forEach((k) => s.add(k));
+  const out = [...s];
+  keyCache.set(geo, out);
+  return out;
+}
 
 function Index() {
   const [sheetUrl, setSheetUrl] = useState(DEFAULT_SHEET);
@@ -88,7 +102,7 @@ function Index() {
 
   const mapLayers: MapLayer[] = rows
     .filter((r) => active[r.id]?.status === "ready")
-    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden }));
+    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden, label: active[r.id]!.label }));
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
@@ -102,10 +116,10 @@ function Index() {
         <header className="bg-primary px-4 py-3 text-primary-foreground">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-foreground/15"><Layers className="h-5 w-5" /></div>
+              <img src={logo} alt="Logo Kabupaten Magelang" className="h-10 w-auto shrink-0" />
               <div>
                 <h1 className="text-base font-semibold leading-tight">WebGIS Eksekutif</h1>
-                <p className="text-xs opacity-75">Distanpangan Kab. Magelang</p>
+                <p className="text-xs opacity-75">Distan dan Pangan Kab. Magelang</p>
               </div>
             </div>
             <div className="flex gap-1">
@@ -161,26 +175,42 @@ function Index() {
                 <ul className="space-y-0.5">
                   {items.map((r) => {
                     const a = active[r.id];
+                    const fields = a?.status === "ready" ? propKeys(a.data) : [];
                     return (
                       <li key={r.id} className={`rounded-md border transition-colors ${a ? "border-primary/30 bg-card shadow-sm" : "border-transparent hover:bg-accent"} ${a?.hidden ? "opacity-60" : ""}`}>
-                        <label className="flex cursor-pointer items-center gap-2 px-2 py-1.5">
-                          <input type="checkbox" checked={!!a} onChange={() => toggle(r)} className="h-4 w-4 shrink-0 accent-primary" />
-                          <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 px-2 py-1.5">
+                          <input type="checkbox" checked={!!a} onChange={() => toggle(r)} aria-label={`Tampilkan ${r.nama}`} className="h-4 w-4 shrink-0 cursor-pointer accent-primary" />
+                          <button type="button" className="min-w-0 flex-1 text-left"
+                            onClick={() => (a?.status === "ready" ? patch(r.id, { open: !a.open }) : toggle(r))}>
                             <div className="truncate text-[13px] font-medium leading-snug" title={r.nama}>{r.nama}</div>
                             {r.keterangan && <div className="truncate text-[11px] text-muted-foreground" title={r.keterangan}>{r.keterangan}</div>}
-                          </div>
+                          </button>
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
                             <>
                               <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: a.color }} />
+                              <button aria-label="Pengaturan label" title="Pengaturan label" onClick={() => patch(r.id, { open: !a.open })}
+                                className={`shrink-0 hover:text-primary ${a.open || a.label ? "text-primary" : "text-muted-foreground"}`}>
+                                <Settings className="h-3.5 w-3.5" />
+                              </button>
                               <button aria-label={a.hidden ? "Tampilkan layer" : "Sembunyikan layer"} title={a.hidden ? "Tampilkan" : "Sembunyikan"}
-                                onClick={(e) => { e.preventDefault(); patch(r.id, { hidden: !a.hidden }); if (a.hidden) setFocus({ id: r.id, n: Date.now() }); }}
+                                onClick={() => { patch(r.id, { hidden: !a.hidden }); if (a.hidden) setFocus({ id: r.id, n: Date.now() }); }}
                                 className="shrink-0 text-muted-foreground hover:text-primary">
                                 {a.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                               </button>
                             </>
                           )}
-                        </label>
+                        </div>
+                        {a?.status === "ready" && a.open && (
+                          <div className="flex items-center gap-2 px-2 pb-1.5 pl-8">
+                            <span className="shrink-0 text-[11px] text-muted-foreground">Label</span>
+                            <select value={a.label ?? ""} onChange={(e) => patch(r.id, { label: e.target.value || undefined })}
+                              className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
+                              <option value="">Tanpa label</option>
+                              {fields.map((f) => <option key={f} value={f}>{f}</option>)}
+                            </select>
+                          </div>
+                        )}
                         {a?.status === "loading" && (
                           <div className="px-2 pb-1.5 pl-8">
                             <div className="flex items-center gap-1.5 text-[11px] text-primary">Mengunduh {a.loaded ? fmt(a.loaded) : ""}{a.total ? ` / ${fmt(a.total)}` : "…"}</div>
