@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Active = { status: "loading" | "ready" | "error"; loaded: number; total: number; color: string; data?: any; error?: string; hidden?: boolean; open?: boolean; label?: string };
+type Active = { status: "loading" | "ready" | "error"; loaded: number; total: number; color: string; data?: any; error?: string; hidden?: boolean; open?: boolean; label?: string | undefined };
 
 function fmt(n: number) { return n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`; }
 

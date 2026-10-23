@@ -6,7 +6,7 @@ import { bbox } from "@/lib/gis";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined };
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
