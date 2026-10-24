@@ -168,7 +168,8 @@ export default function GisMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
-  useEffect(() => { fitCamera(true); }, [regionKey, regionBounds]);
+  const boundsKey = regionBounds?.join(",") ?? "";
+  useEffect(() => { fitCamera(true); }, [regionKey, boundsKey]);
 
   return <div ref={el} className="h-full w-full" />;
 }

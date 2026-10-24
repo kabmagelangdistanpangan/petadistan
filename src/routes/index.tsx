@@ -134,7 +134,10 @@ function Index() {
     }
   };
 
-  const checkedData = useMemo(() => orderedRows.flatMap((r) => active[r.id]?.status === "ready" ? [active[r.id].data] : []), [orderedRows, active]);
+  const checkedData = useMemo(() => orderedRows.flatMap((r) => {
+    const a = active[r.id];
+    return a?.status === "ready" ? [a.data] : [];
+  }), [orderedRows, active]);
   const regionChoices = useMemo(() => regionOptions(checkedData, region.kecamatan), [checkedData, region.kecamatan]);
   const effectiveRegion = useMemo(() => {
     if (!regionChoices.kecamatan.includes(region.kecamatan)) return { kecamatan: "", desa: "" };
@@ -152,7 +155,10 @@ function Index() {
     if (a?.status !== "ready") return [];
     return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
   }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews]);
-  const regionBounds = useMemo(() => mergeRegionBounds(orderedRows.flatMap((r) => active[r.id]?.status === "ready" && !active[r.id].hidden ? [regionalViews[r.id]?.bounds ?? null] : [])), [orderedRows, active, regionalViews]);
+  const regionBounds = useMemo(() => mergeRegionBounds(orderedRows.flatMap((r) => {
+    const a = active[r.id];
+    return a?.status === "ready" && !a.hidden ? [regionalViews[r.id]?.bounds ?? null] : [];
+  })), [orderedRows, active, regionalViews]);
   const regionScope = effectiveRegion.desa || effectiveRegion.kecamatan || "Se-Kabupaten";
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 

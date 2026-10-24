@@ -40,14 +40,14 @@ describe("hierarchical region rules", () => {
   });
   it("handles nulls, inconsistent casing and numeric strings safely", () => {
     const geo = { type: "FeatureCollection", features: [feature({ KECAMATAN: " a ", DESA: "Satu", PANJANG: "1.450,5" }), feature({ kecamatan: "A", desa: "Satu", panjang: "rusak" }), feature(null as unknown as Record<string, unknown>)] };
-    expect(regionalView(geo, { kecamatan: "A", desa: "Satu" }).summary[0].value).toBe(1450.5);
+    expect(regionalView(geo, { kecamatan: "A", desa: "Satu" }).summary[0]?.value).toBe(1450.5);
     expect(attributeNumber(Infinity)).toBeNull();
     expect(attributeNumber(-1)).toBeNull();
   });
   it("supports normalized TopoJSON attributes and combines camera bounds", () => {
     const geo = normalizeMapJSON({ type: "Topology", arcs: [], objects: { area: { type: "Point", coordinates: [110, -7], properties: { Kecamatan: "A", Desa: "Satu", Luas: 420 } } } });
     const view = regionalView(geo, { kecamatan: "A", desa: "Satu" });
-    expect(view.summary[0].value).toBe(420);
+    expect(view.summary[0]?.value).toBe(420);
     expect(mergeRegionBounds([view.bounds, [111, -8, 112, -6], null])).toEqual([110, -8, 112, -6]);
   });
 });
