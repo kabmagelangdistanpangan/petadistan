@@ -127,7 +127,7 @@ export function bbox(geo: any): [number, number, number, number] | null {
     } else c.forEach(walk);
   };
   const visit = (g: any) => {
-    if (!g) continue;
+    if (!g) return;
     if (g.type === "GeometryCollection") g.geometries.forEach(visit);
     else if (g.coordinates) walk(g.coordinates);
   };
