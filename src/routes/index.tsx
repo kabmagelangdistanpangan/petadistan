@@ -105,7 +105,7 @@ function Index() {
   const mapLayers: MapLayer[] = rows
     .filter((r) => active[r.id]?.status === "ready")
     .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden, label: active[r.id]!.label, boundary: isBoundaryLayer(r.nama) }))
-    .sort((a, b) => Number(!!a.boundary) - Number(!!b.boundary) ? (a.boundary ? -1 : 1) : 0);
+    .sort((a, b) => Number(!!b.boundary) - Number(!!a.boundary));
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
