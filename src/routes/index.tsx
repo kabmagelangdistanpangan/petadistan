@@ -4,9 +4,11 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw,
 } from "lucide-react";
-import { DEFAULT_SHEET, PALETTE, BOUNDARY_FILL, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
+import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
+import { resolveLayerColor } from "@/lib/layer-colors";
+import { Button } from "@/components/ui/button";
 import type { MapLayer } from "@/components/GisMap";
 import { SortableLayer } from "@/components/SortableLayer";
 import { dragLayerOrder, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
@@ -51,6 +53,7 @@ function Index() {
   const [showSettings, setShowSettings] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Record<string, Active>>({});
+  const [manualColors, setManualColors] = useState<Record<string, string>>({});
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -109,15 +112,14 @@ function Index() {
   const patch = (id: string, v: Partial<Active>) =>
     setActive((a) => (a[id] ? { ...a, [id]: { ...a[id], ...v } as Active } : a));
 
+  const colorFor = (r: MapRow) => resolveLayerColor(r.nama, rows.filter((row) => !isBoundaryLayer(row.nama)).findIndex((row) => row.id === r.id), manualColors[r.id]);
+
   const toggle = async (r: MapRow) => {
     if (active[r.id]) {
       setActive(({ [r.id]: _, ...rest }) => rest);
       return;
     }
-    const used = new Set(Object.values(active).map((a) => a.color));
-    const color = isBoundaryLayer(r.nama)
-      ? BOUNDARY_FILL
-       : PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length] ?? PALETTE[0] ?? BOUNDARY_FILL;
+    const color = colorFor(r);
     setActive((a) => ({ ...a, [r.id]: { status: "loading", loaded: 0, total: 0, color } }));
     try {
       const data = await downloadGeoJSON(r.link, (loaded, total) =>
@@ -132,13 +134,13 @@ function Index() {
   const mapLayers: MapLayer[] = mapStackOrder(orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready") return [];
-    return [{ id: r.id, data: a.data, color: a.color, nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
+    return [{ id: r.id, data: a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
   }), manualOrder);
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
     localStorage.setItem("gis-sheet-url", draft);
-    setSheetUrl(draft); setActive({}); setLayerOrder([]); setManualOrder(false); setShowSettings(false);
+    setSheetUrl(draft); setActive({}); setManualColors({}); setLayerOrder([]); setManualOrder(false); setShowSettings(false);
   };
 
   return (
@@ -219,15 +221,15 @@ function Index() {
                             onClick={() => (a?.status === "ready" ? patch(r.id, { open: !a.open }) : toggle(r))}>
                             <div className="truncate text-[13px] font-medium leading-snug" title={r.nama}>{r.nama}</div>
                             {r.keterangan && <div className="truncate text-[11px] text-muted-foreground" title={r.keterangan}>{r.keterangan}</div>}
+                            {a?.status === "ready" && <span aria-label={`Legenda ${r.nama}`} className="mt-0.5 block h-1 w-6 rounded-sm" style={{ backgroundColor: colorFor(r) }} />}
                           </button>
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
                             <>
-                              <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: a.color }} />
-                              <button aria-label="Pengaturan label" title="Pengaturan label" onClick={() => patch(r.id, { open: !a.open })}
-                                className={`shrink-0 hover:text-primary ${a.open || a.label ? "text-primary" : "text-muted-foreground"}`}>
+                              <Button variant="ghost" size="icon" aria-label={`Pengaturan warna dan label ${r.nama}`} title="Warna dan label" onClick={() => patch(r.id, { open: !a.open })}
+                                className={`h-5 w-5 shrink-0 p-0 hover:text-primary ${a.open || a.label || manualColors[r.id] ? "text-primary" : "text-muted-foreground"}`}>
                                 <Settings className="h-3.5 w-3.5" />
-                              </button>
+                              </Button>
                               <button aria-label={a.hidden ? "Tampilkan layer" : "Sembunyikan layer"} title={a.hidden ? "Tampilkan" : "Sembunyikan"}
                                 onClick={() => { patch(r.id, { hidden: !a.hidden }); if (a.hidden) setFocus({ id: r.id, n: Date.now() }); }}
                                 className="shrink-0 text-muted-foreground hover:text-primary">
@@ -238,8 +240,17 @@ function Index() {
                         </div>
                         {a?.status === "ready" && a.open && (
                           <div className="flex items-center gap-2 px-2 pb-1.5 pl-8">
-                            <span className="shrink-0 text-[11px] text-muted-foreground">Label</span>
+                            <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                              Warna
+                              <input type="color" value={colorFor(r)} aria-label={`Warna ${r.nama}`} title="Pilih warna peta"
+                                onChange={(e) => setManualColors((colors) => ({ ...colors, [r.id]: e.target.value }))}
+                                className="layer-color-picker h-6 w-7 cursor-pointer rounded-md border border-input bg-background p-0.5 focus:outline-none focus:ring-1 focus:ring-ring" />
+                            </label>
+                            {manualColors[r.id] && <Button variant="ghost" size="icon" className="h-6 w-5 shrink-0 p-0 text-muted-foreground"
+                              aria-label={`Kembalikan warna default ${r.nama}`} title="Warna default"
+                              onClick={() => setManualColors(({ [r.id]: _, ...rest }) => rest)}><RotateCcw /></Button>}
                             <select value={a.label ?? ""} onChange={(e) => patch(r.id, { label: e.target.value || undefined })}
+                              aria-label={`Label ${r.nama}`}
                               className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
                               <option value="">Tanpa label</option>
                               {fields.map((f) => <option key={f} value={f}>{f}</option>)}
