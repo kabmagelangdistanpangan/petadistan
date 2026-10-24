@@ -6,7 +6,7 @@ import { bbox } from "@/lib/gis";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean };
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -39,18 +39,36 @@ export default function GisMap({
       map.addSource(`src-${l.id}`, { type: "geojson", data: l.data });
       map.addLayer({ id: `lyr-${l.id}-fill`, type: "fill", source: `src-${l.id}`,
         filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "fill-color": l.color, "fill-opacity": 0.6 } });
+        paint: l.boundary
+          ? { "fill-color": "#f5e6a2", "fill-opacity": 0.4 }
+          : { "fill-color": l.color, "fill-opacity": 0.6 } });
       map.addLayer({ id: `lyr-${l.id}-line`, type: "line", source: `src-${l.id}`,
         filter: ["in", ["geometry-type"], ["literal", ["Polygon", "LineString"]]],
-        paint: { "line-color": l.color, "line-width": ["case", ["==", ["geometry-type"], "LineString"], 3, 1.2], "line-opacity": 0.9 } });
+        paint: l.boundary
+          ? { "line-color": "#1f2937", "line-width": 1.5, "line-dasharray": [3, 3], "line-opacity": 0.9 }
+          : { "line-color": l.color, "line-width": ["case", ["==", ["geometry-type"], "LineString"], 3, 1.2], "line-opacity": 0.9 } });
       map.addLayer({ id: `lyr-${l.id}-pt`, type: "circle", source: `src-${l.id}`,
         filter: ["==", ["geometry-type"], "Point"],
-        paint: { "circle-color": l.color, "circle-radius": 6, "circle-opacity": 0.85, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } });
+        paint: l.boundary
+          ? { "circle-color": "#f5e6a2", "circle-radius": 5, "circle-opacity": 0.7, "circle-stroke-color": "#1f2937", "circle-stroke-width": 1 }
+          : { "circle-color": l.color, "circle-radius": 6, "circle-opacity": 0.85, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } });
       map.addLayer({ id: `lyr-${l.id}-lbl`, type: "symbol", source: `src-${l.id}`,
         layout: { "text-field": "", "text-font": ["Noto Sans Regular"], "text-size": 11, "symbol-placement": "point", "text-max-width": 8 },
         paint: { "text-color": "#0f172a", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } });
       added.current.add(l.id);
     }
+    // Boundary layers always render below every other data layer.
+    const stack = () => {
+      const firstData = map.getStyle().layers.find((ly) => ly.id.startsWith("lyr-") && !layersRef.current.find((l) => ly.id.startsWith(`lyr-${l.id}-`))?.boundary)?.id;
+      for (const l of layersRef.current) {
+        if (!l.boundary || !added.current.has(l.id)) continue;
+        for (const k of ["fill", "line", "pt", "lbl"]) {
+          const lid = `lyr-${l.id}-${k}`;
+          if (map.getLayer(lid)) map.moveLayer(lid, firstData);
+        }
+      }
+    };
+    stack();
     for (const l of layers) {
       if (!added.current.has(l.id)) continue;
       const vis = l.visible === false ? "none" : "visible";
