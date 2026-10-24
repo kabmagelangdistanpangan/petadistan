@@ -14,9 +14,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "WebGIS Eksekutif — Distan dan Pangan Kab. Magelang" },
-      { name: "description", content: "Dashboard peta interaktif untuk pimpinan: data real-time dari Google Sheets dan GeoJSON Google Drive." },
+      { name: "description", content: "Dashboard peta interaktif untuk pimpinan: data real-time dari Google Sheets serta GeoJSON dan TopoJSON Google Drive." },
       { property: "og:title", content: "WebGIS Eksekutif — Distan dan Pangan Kab. Magelang" },
-      { property: "og:description", content: "Dashboard peta interaktif untuk pimpinan dengan layer GeoJSON otomatis." },
+      { property: "og:description", content: "Dashboard peta interaktif untuk pimpinan dengan layer GeoJSON dan TopoJSON otomatis." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
