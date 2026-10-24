@@ -18,7 +18,7 @@ export function moveLayerOrder(order: string[], id: string, direction: -1 | 1): 
 }
 
 /** MapLibre inserts bottom-to-top; boundaries always remain the base. */
-export function mapStackOrder<T extends { boundary?: boolean }>(sidebar: T[], manual: boolean): T[] {
+export function mapStackOrder<T extends { id: string; boundary?: boolean }>(sidebar: T[], manual: boolean): T[] {
   const data = sidebar.filter((layer) => !layer.boundary);
   return [...sidebar.filter((layer) => layer.boundary), ...(manual ? data : data.reverse())];
 }
