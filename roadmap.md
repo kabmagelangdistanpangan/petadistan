@@ -1,4 +1,6 @@
 # Tasks
+- [ ] Add keyword-based cartographic colors and compact manual overrides, synchronizing map and legend.
+- [ ] Test color priority and verify recoloring in the running application.
 - [x] Replace arrow controls with compact drag-and-drop and verify map stacking after a drop.
 - [x] Apply newest-first defaults and compact manual layer moves.
 - [x] Synchronize map stacking, retaining administrative boundaries underneath.
