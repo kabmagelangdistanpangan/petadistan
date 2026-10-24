@@ -2,10 +2,12 @@ import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
-  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { DEFAULT_SHEET, PALETTE, BOUNDARY_FILL, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import type { MapLayer } from "@/components/GisMap";
+import { Button } from "@/components/ui/button";
+import { mapStackOrder, moveLayerOrder, reconcileLayerOrder } from "@/lib/layer-order";
 import logo from "@/assets/logo-magelang.png";
 
 const GisMap = lazy(() => import("@/components/GisMap"));
@@ -50,6 +52,8 @@ function Index() {
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [layerOrder, setLayerOrder] = useState<string[]>([]);
+  const [manualOrder, setManualOrder] = useState(false);
 
   useEffect(() => {
     const s = localStorage.getItem("gis-sheet-url");
@@ -69,18 +73,34 @@ function Index() {
   });
 
   const rows = sheet.data ?? [];
+  const order = useMemo(() => reconcileLayerOrder(rows.map((r) => r.id), layerOrder), [rows, layerOrder]);
+  const orderedRows = useMemo(() => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return order.flatMap((id) => {
+      const row = byId.get(id);
+      return row ? [row] : [];
+    });
+  }, [rows, order]);
+  const moveLayer = (id: string, direction: -1 | 1) => {
+    const next = moveLayerOrder(order, id, direction);
+    if (next === order) return;
+    setLayerOrder(next);
+    setManualOrder(true);
+  };
   const groups = useMemo(() => {
     const s = q.trim().toLowerCase();
-    const g: Record<string, MapRow[]> = {};
-    for (const r of rows) {
+    const g: [string, MapRow[]][] = [];
+    for (const r of orderedRows) {
       if (s && !`${r.nama} ${r.kategori} ${r.keterangan}`.toLowerCase().includes(s)) continue;
-      (g[r.kategori] ??= []).push(r);
+      const last = g.at(-1);
+      if (last?.[0] === r.kategori) last[1].push(r);
+      else g.push([r.kategori, [r]]);
     }
-    return Object.entries(g).sort(([a], [b]) => a.localeCompare(b));
-  }, [rows, q]);
+    return g;
+  }, [orderedRows, q]);
 
   const patch = (id: string, v: Partial<Active>) =>
-    setActive((a) => (a[id] ? { ...a, [id]: { ...a[id]!, ...v } as Active } : a));
+    setActive((a) => (a[id] ? { ...a, [id]: { ...a[id], ...v } as Active } : a));
 
   const toggle = async (r: MapRow) => {
     if (active[r.id]) {
@@ -90,7 +110,7 @@ function Index() {
     const used = new Set(Object.values(active).map((a) => a.color));
     const color = isBoundaryLayer(r.nama)
       ? BOUNDARY_FILL
-      : PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length]!;
+       : PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length] ?? PALETTE[0] ?? BOUNDARY_FILL;
     setActive((a) => ({ ...a, [r.id]: { status: "loading", loaded: 0, total: 0, color } }));
     try {
       const data = await downloadGeoJSON(r.link, (loaded, total) =>
@@ -102,15 +122,16 @@ function Index() {
     }
   };
 
-  const mapLayers: MapLayer[] = rows
-    .filter((r) => active[r.id]?.status === "ready")
-    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden, label: active[r.id]!.label, boundary: isBoundaryLayer(r.nama) }))
-    .sort((a, b) => Number(!!b.boundary) - Number(!!a.boundary));
+  const mapLayers: MapLayer[] = mapStackOrder(orderedRows.flatMap((r) => {
+    const a = active[r.id];
+    if (a?.status !== "ready") return [];
+    return [{ id: r.id, data: a.data, color: a.color, nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
+  }), manualOrder);
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
     localStorage.setItem("gis-sheet-url", draft);
-    setSheetUrl(draft); setActive({}); setShowSettings(false);
+    setSheetUrl(draft); setActive({}); setLayerOrder([]); setManualOrder(false); setShowSettings(false);
   };
 
   return (
@@ -168,7 +189,7 @@ function Index() {
           {groups.map(([kat, items]) => {
             const isCollapsed = collapsed[kat] ?? rows.length > 10;
             return (
-            <section key={kat} className="mb-1.5">
+            <section key={`${kat}-${items[0]?.id}`} className="mb-1.5">
               <button onClick={() => setCollapsed((c) => ({ ...c, [kat]: !isCollapsed }))}
                 className="flex w-full items-center justify-between px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span>{kat} <span className="font-normal">({items.length})</span></span>
@@ -188,6 +209,18 @@ function Index() {
                             <div className="truncate text-[13px] font-medium leading-snug" title={r.nama}>{r.nama}</div>
                             {r.keterangan && <div className="truncate text-[11px] text-muted-foreground" title={r.keterangan}>{r.keterangan}</div>}
                           </button>
+                           <div className="flex shrink-0 flex-col">
+                             <Button variant="ghost" size="icon" aria-label={`Naikkan ${r.nama}`} title="Pindah ke atas"
+                               disabled={order.indexOf(r.id) === 0} onClick={() => moveLayer(r.id, -1)}
+                               className="h-4 w-5 rounded-sm p-0 text-muted-foreground [&_svg]:size-3">
+                               <ArrowUp />
+                             </Button>
+                             <Button variant="ghost" size="icon" aria-label={`Turunkan ${r.nama}`} title="Pindah ke bawah"
+                               disabled={order.indexOf(r.id) === order.length - 1} onClick={() => moveLayer(r.id, 1)}
+                               className="h-4 w-5 rounded-sm p-0 text-muted-foreground [&_svg]:size-3">
+                               <ArrowDown />
+                             </Button>
+                           </div>
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
                             <>

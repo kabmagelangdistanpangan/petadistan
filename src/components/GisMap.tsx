@@ -3,13 +3,14 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { bbox } from "@/lib/gis";
+import { syncMapStack } from "@/lib/layer-order";
 
 maplibregl.setWorkerUrl(workerUrl);
 
 export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean };
 
 const esc = (s: unknown) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 export default function GisMap({
   layers, focus, satellite,
@@ -26,6 +27,7 @@ export default function GisMap({
   const sync = () => {
     const map = mapRef.current;
     if (!map || !readyRef.current) return;
+    const layers = layersRef.current;
     const want = new Set(layers.map((l) => l.id));
     for (const id of [...added.current]) {
       if (!want.has(id)) {
@@ -57,18 +59,7 @@ export default function GisMap({
         paint: { "text-color": "#0f172a", "text-halo-color": "#ffffff", "text-halo-width": 1.5 } });
       added.current.add(l.id);
     }
-    // Boundary layers always render below every other data layer.
-    const stack = () => {
-      const firstData = map.getStyle().layers.find((ly) => ly.id.startsWith("lyr-") && !layersRef.current.find((l) => ly.id.startsWith(`lyr-${l.id}-`))?.boundary)?.id;
-      for (const l of layersRef.current) {
-        if (!l.boundary || !added.current.has(l.id)) continue;
-        for (const k of ["fill", "line", "pt", "lbl"]) {
-          const lid = `lyr-${l.id}-${k}`;
-          if (map.getLayer(lid)) map.moveLayer(lid, firstData);
-        }
-      }
-    };
-    stack();
+    syncMapStack(map, layers);
     for (const l of layers) {
       if (!added.current.has(l.id)) continue;
       const vis = l.visible === false ? "none" : "visible";
@@ -93,8 +84,9 @@ export default function GisMap({
   };
 
   useEffect(() => {
+    if (!el.current) return;
     const map = new maplibregl.Map({
-      container: el.current!,
+      container: el.current,
       style: "https://tiles.openfreemap.org/styles/positron",
       center: [110.22, -7.48],
       zoom: 10,
