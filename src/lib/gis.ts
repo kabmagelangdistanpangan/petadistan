@@ -1,4 +1,6 @@
 import proj4 from "proj4";
+import { feature } from "topojson-client";
+import type { Topology } from "topojson-specification";
 
 export type MapRow = { id: string; nama: string; link: string; kategori: string; keterangan: string };
 
@@ -39,7 +41,7 @@ export function rowsFromCSV(text: string): MapRow[] {
   const h = head.map(norm);
   const find = (...keys: string[]) => h.findIndex((x) => keys.includes(x));
   const iNama = find("nama_peta", "nama", "judul");
-  const iLink = find("link_geojson", "link_json", "geojson", "link");
+  const iLink = find("link_geojson", "link_topojson", "link_json", "geojson", "topojson", "link");
   const iKat = find("kategori", "category");
   const iKet = find("keterangan", "deskripsi", "description");
   return body
@@ -81,7 +83,7 @@ async function fetchGeoJSON(link: string, onProgress: (loaded: number, total: nu
   const res = await fetch(id ? `/api/public/drive?id=${id}` : link);
   if (!res.ok) throw new Error((await res.text()) || `Gagal mengunduh (${res.status})`);
   const total = Number(res.headers.get("content-length") ?? 0);
-  if (!res.body) return res.json();
+  if (!res.body) return normalizeMapJSON(await res.json());
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let loaded = 0;
@@ -91,9 +93,29 @@ async function fetchGeoJSON(link: string, onProgress: (loaded: number, total: nu
     chunks.push(value); loaded += value.length; onProgress(loaded, total);
   }
   const blob = new Blob(chunks as BlobPart[]);
-  const json = JSON.parse(await blob.text());
+  return normalizeMapJSON(JSON.parse(await blob.text()));
+}
+
+// Decode every TopoJSON object once; the rest of the map consumes GeoJSON only.
+export function normalizeMapJSON(json: any) {
+  if (json?.type === "Topology") {
+    if (!json.objects || typeof json.objects !== "object" || Array.isArray(json.objects) || !Array.isArray(json.arcs))
+      throw new Error("File TopoJSON tidak valid");
+    try {
+      const topology = json as Topology;
+      const features = Object.values(topology.objects).flatMap((object) => {
+        const converted = feature(topology, object);
+        return converted.type === "FeatureCollection" ? converted.features : [converted];
+      });
+      if (!features.length) throw new Error("Tidak ada objek peta");
+      const geo = { type: "FeatureCollection", features, ...(json.crs ? { crs: json.crs } : {}) };
+      return toWGS84(geo);
+    } catch {
+      throw new Error("File TopoJSON tidak valid atau tidak berisi objek peta");
+    }
+  }
   if (!json || (json.type !== "FeatureCollection" && json.type !== "Feature"))
-    throw new Error("File bukan GeoJSON yang valid");
+    throw new Error("File bukan GeoJSON atau TopoJSON yang valid");
   return toWGS84(json);
 }
 
@@ -104,13 +126,13 @@ export function bbox(geo: any): [number, number, number, number] | null {
       b = [Math.min(b[0]!, c[0]), Math.min(b[1]!, c[1]), Math.max(b[2]!, c[0]), Math.max(b[3]!, c[1])];
     } else c.forEach(walk);
   };
-  const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
-  for (const f of feats) {
-    const g = f?.geometry;
-    if (!g) continue;
-    if (g.type === "GeometryCollection") g.geometries.forEach((x: any) => walk(x.coordinates));
+  const visit = (g: any) => {
+    if (!g) return;
+    if (g.type === "GeometryCollection") g.geometries.forEach(visit);
     else if (g.coordinates) walk(g.coordinates);
-  }
+  };
+  const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
+  for (const f of feats) visit(f?.geometry);
   return isFinite(b[0]!) ? (b as [number, number, number, number]) : null;
 }
 
@@ -127,13 +149,13 @@ export function toWGS84(geo: any) {
   else def = "+proj=utm +zone=49 +south +datum=WGS84 +units=m +no_defs";
   const t = proj4(def, "EPSG:4326");
   const walk = (c: any): any => (typeof c[0] === "number" ? t.forward([c[0], c[1]]) : c.map(walk));
-  const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
-  for (const f of feats) {
-    const g = f?.geometry;
-    if (!g) continue;
-    if (g.type === "GeometryCollection") g.geometries.forEach((x: any) => (x.coordinates = walk(x.coordinates)));
+  const visit = (g: any) => {
+    if (!g) return;
+    if (g.type === "GeometryCollection") g.geometries.forEach(visit);
     else if (g.coordinates) g.coordinates = walk(g.coordinates);
-  }
+  };
+  const feats = geo.type === "FeatureCollection" ? geo.features : [geo];
+  for (const f of feats) visit(f?.geometry);
   delete geo.crs;
   return geo;
 }
