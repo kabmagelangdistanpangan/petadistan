@@ -1,7 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
-import { mapStackOrder, moveLayerOrder, reconcileLayerOrder, syncMapStack } from "./layer-order";
+import { dragLayerOrder, mapStackOrder, moveLayerOrder, reconcileLayerOrder, syncMapStack } from "./layer-order";
 
 describe("layer ordering", () => {
+  it("drags directly across several rows in both directions", () => {
+    expect(dragLayerOrder(["new", "middle", "old"], "new", "old")).toEqual(["middle", "old", "new"]);
+    expect(dragLayerOrder(["new", "middle", "old"], "old", "new")).toEqual(["old", "new", "middle"]);
+  });
+
+  it("ignores canceled or unchanged drops and preserves hidden rows", () => {
+    const order = ["new", "hidden", "old"];
+    expect(dragLayerOrder(order, "new", "missing")).toBe(order);
+    expect(dragLayerOrder(order, "new", "new")).toBe(order);
+    expect(dragLayerOrder(order, "new", "old")).toEqual(["hidden", "old", "new"]);
+  });
+
+  it("places a dragged lower row above other data on the map", () => {
+    const order = dragLayerOrder(["new", "middle", "old"], "new", "old");
+    expect(mapStackOrder(order.map((id) => ({ id })), true).at(-1)?.id).toBe("new");
+  });
   const rows = [{ id: "old" }, { id: "middle" }, { id: "new" }];
 
   it("starts with the bottommost Sheets row first in the sidebar", () => {
