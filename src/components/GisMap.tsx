@@ -14,12 +14,15 @@ const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 export default function GisMap({
-  layers, focus, satellite,
-}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean }) {
+   layers, focus, satellite, regionKey, regionBounds,
+}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
   const added = useRef(new Set<string>());
+  const sourceData = useRef(new Map<string, any>());
+  const cameraRef = useRef({ regionKey, regionBounds, focus });
+  cameraRef.current = { regionKey, regionBounds, focus };
   const layersRef = useRef(layers);
   layersRef.current = layers;
   const satRef = useRef(satellite);
@@ -35,11 +38,20 @@ export default function GisMap({
         ["lbl", "fill", "line", "pt"].forEach((k) => map.getLayer(`lyr-${id}-${k}`) && map.removeLayer(`lyr-${id}-${k}`));
         map.getSource(`src-${id}`) && map.removeSource(`src-${id}`);
         added.current.delete(id);
+        sourceData.current.delete(id);
       }
     }
     for (const l of layers) {
-      if (added.current.has(l.id)) continue;
+      if (added.current.has(l.id)) {
+        if (sourceData.current.get(l.id) !== l.data) {
+          const source = map.getSource(`src-${l.id}`) as maplibregl.GeoJSONSource | undefined;
+          source?.setData(l.data);
+          sourceData.current.set(l.id, l.data);
+        }
+        continue;
+      }
       map.addSource(`src-${l.id}`, { type: "geojson", data: l.data });
+      sourceData.current.set(l.id, l.data);
       map.addLayer({ id: `lyr-${l.id}-fill`, type: "fill", source: `src-${l.id}`,
         filter: ["==", ["geometry-type"], "Polygon"],
         paint: l.boundary
@@ -90,6 +102,17 @@ export default function GisMap({
     }
   };
 
+  const fitCamera = (regional: boolean) => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current) return;
+    const camera = cameraRef.current;
+    const layer = layersRef.current.find((item) => item.id === camera.focus?.id);
+    const bounds = regional ? camera.regionBounds : layer ? bbox(layer.data) : null;
+    if (!bounds) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    map.fitBounds(bounds, { padding: { top: 115, bottom: 45, left: 35, right: 45 }, maxZoom: 16, duration: reducedMotion ? 0 : 700 });
+  };
+
   useEffect(() => {
     if (!el.current) return;
     const map = new maplibregl.Map({
@@ -113,6 +136,7 @@ export default function GisMap({
       readyRef.current = true;
       applyBasemap();
       sync();
+      fitCamera(cameraRef.current.regionKey !== "|");
     });
     map.on("click", (e) => {
       const ids = [...added.current].flatMap((id) => [`lyr-${id}-pt`, `lyr-${id}-line`, `lyr-${id}-fill`]);
@@ -132,7 +156,7 @@ export default function GisMap({
       const ids = [...added.current].flatMap((id) => [`lyr-${id}-pt`, `lyr-${id}-line`, `lyr-${id}-fill`]);
       map.getCanvas().style.cursor = ids.length && map.queryRenderedFeatures(e.point, { layers: ids }).length ? "pointer" : "";
     });
-    return () => map.remove();
+    return () => { readyRef.current = false; added.current.clear(); sourceData.current.clear(); mapRef.current = null; map.remove(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -140,13 +164,12 @@ export default function GisMap({
   useEffect(applyBasemap, [satellite]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    const l = layers.find((x) => x.id === focus?.id);
-    if (!map || !l) return;
-    const b = bbox(l.data);
-    if (b) map.fitBounds(b, { padding: 60, maxZoom: 16, duration: 900 });
+    fitCamera(regionKey !== "|");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
+
+  const boundsKey = regionBounds?.join(",") ?? "";
+  useEffect(() => { fitCamera(true); }, [regionKey, boundsKey]);
 
   return <div ref={el} className="h-full w-full" />;
 }
