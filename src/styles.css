@@ -153,3 +153,7 @@
 .gis-pop th { text-align: left; font-weight: 500; color: var(--muted-foreground); padding: 4px 8px 4px 0; vertical-align: top; white-space: nowrap; }
 .gis-pop td { padding: 4px 0; color: var(--foreground); word-break: break-word; }
 .gis-pop tr + tr { border-top: 1px solid var(--border); }
+
+.layer-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.layer-color-picker::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.layer-color-picker::-moz-color-swatch { border: 0; border-radius: 3px; }

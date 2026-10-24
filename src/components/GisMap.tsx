@@ -4,10 +4,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { bbox } from "@/lib/gis";
 import { syncMapStack } from "@/lib/layer-order";
+import { layerPaintColors } from "@/lib/layer-colors";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean };
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
@@ -62,6 +63,12 @@ export default function GisMap({
     syncMapStack(map, layers);
     for (const l of layers) {
       if (!added.current.has(l.id)) continue;
+      const paint = layerPaintColors(l);
+      map.setPaintProperty(`lyr-${l.id}-fill`, "fill-color", paint.fill);
+      map.setPaintProperty(`lyr-${l.id}-fill`, "fill-opacity", paint.fillOpacity);
+      map.setPaintProperty(`lyr-${l.id}-line`, "line-color", paint.stroke);
+      map.setPaintProperty(`lyr-${l.id}-pt`, "circle-color", paint.fill);
+      if (l.boundary) map.setPaintProperty(`lyr-${l.id}-pt`, "circle-stroke-color", paint.stroke);
       const vis = l.visible === false ? "none" : "visible";
       for (const k of ["fill", "line", "pt"])
         map.getLayer(`lyr-${l.id}-${k}`) && map.setLayoutProperty(`lyr-${l.id}-${k}`, "visibility", vis);
