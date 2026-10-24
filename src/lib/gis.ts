@@ -7,11 +7,21 @@ export type MapRow = { id: string; nama: string; link: string; kategori: string;
 export const DEFAULT_SHEET =
   "https://docs.google.com/spreadsheets/d/1bwY_CkNt4DSdfZJWI4c69uuX6WVyHgm1cwKXPMMy1TU/edit?usp=sharing";
 
-// Bright data palette for map layers.
+// Ordered palette: bright primary colors first (contrast over the yellow boundary base),
+// then softer secondary/pastel fallbacks once the primaries are used up.
 export const PALETTE = [
-  "#f43f5e", "#0ea5e9", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899",
-  "#14b8a6", "#f97316", "#3b82f6", "#84cc16", "#eab308", "#ef4444",
+  // Bright primary: electric blue, emerald, crimson, orange, violet
+  "#0091ff", "#10b981", "#e11d48", "#f97316", "#8b5cf6",
+  // Secondary / pastel fallbacks
+  "#f59e0b", "#ec4899", "#14b8a6", "#3b82f6", "#84cc16", "#0ea5e9", "#ef4444",
 ];
+
+// Boundary/base layers (e.g. "Peta Batas Administrasi") keep a fixed style
+// and never consume a palette color.
+export const isBoundaryLayer = (nama: string) => /administrasi|batas/i.test(nama);
+export const BOUNDARY_FILL = "#f5e6a2"; // warm straw pastel yellow
+export const BOUNDARY_FILL_OPACITY = 0.4;
+export const BOUNDARY_LINE = "#1f2937"; // near-black, best contrast on the light basemap
 
 export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];

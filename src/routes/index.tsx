@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff,
 } from "lucide-react";
-import { DEFAULT_SHEET, PALETTE, downloadGeoJSON, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
+import { DEFAULT_SHEET, PALETTE, BOUNDARY_FILL, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import type { MapLayer } from "@/components/GisMap";
 import logo from "@/assets/logo-magelang.png";
 
@@ -88,7 +88,9 @@ function Index() {
       return;
     }
     const used = new Set(Object.values(active).map((a) => a.color));
-    const color = PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length]!;
+    const color = isBoundaryLayer(r.nama)
+      ? BOUNDARY_FILL
+      : PALETTE.find((c) => !used.has(c)) ?? PALETTE[Object.keys(active).length % PALETTE.length]!;
     setActive((a) => ({ ...a, [r.id]: { status: "loading", loaded: 0, total: 0, color } }));
     try {
       const data = await downloadGeoJSON(r.link, (loaded, total) =>
@@ -102,7 +104,8 @@ function Index() {
 
   const mapLayers: MapLayer[] = rows
     .filter((r) => active[r.id]?.status === "ready")
-    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden, label: active[r.id]!.label }));
+    .map((r) => ({ id: r.id, data: active[r.id]!.data, color: active[r.id]!.color, nama: r.nama, keterangan: r.keterangan, visible: !active[r.id]!.hidden, label: active[r.id]!.label, boundary: isBoundaryLayer(r.nama) }))
+    .sort((a, b) => Number(!!b.boundary) - Number(!!a.boundary));
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
