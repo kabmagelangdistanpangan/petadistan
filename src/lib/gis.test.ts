@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Blob as NodeBlob } from "node:buffer";
 import { bbox, downloadGeoJSON, normalizeMapJSON, rowsFromCSV } from "./gis";
 
 const topology = () => ({
@@ -60,6 +61,7 @@ describe("TopoJSON map support", () => {
   });
 
   it.each([true, false])("normalizes downloads with a stream=%s and caches the converted data", async (streamed) => {
+    vi.stubGlobal("Blob", NodeBlob);
     const body = JSON.stringify(topology());
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
