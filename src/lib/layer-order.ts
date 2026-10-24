@@ -17,6 +17,15 @@ export function moveLayerOrder(order: string[], id: string, direction: -1 | 1): 
   return next;
 }
 
+export function dragLayerOrder(order: string[], id: string, targetId: string): string[] {
+  const from = order.indexOf(id);
+  const to = order.indexOf(targetId);
+  if (from < 0 || to < 0 || from === to) return order;
+  const next = order.filter((item) => item !== id);
+  next.splice(to, 0, id);
+  return next;
+}
+
 /** MapLibre inserts bottom-to-top; boundaries always remain the base. */
 export function mapStackOrder<T extends { id: string; boundary?: boolean }>(sidebar: T[], manual: boolean): T[] {
   const data = sidebar.filter((layer) => !layer.boundary);

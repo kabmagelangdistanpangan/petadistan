@@ -1,13 +1,15 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, ArrowUp, ArrowDown,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff,
 } from "lucide-react";
 import { DEFAULT_SHEET, PALETTE, BOUNDARY_FILL, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import type { MapLayer } from "@/components/GisMap";
-import { Button } from "@/components/ui/button";
-import { mapStackOrder, moveLayerOrder, reconcileLayerOrder } from "@/lib/layer-order";
+import { SortableLayer } from "@/components/SortableLayer";
+import { dragLayerOrder, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
 import logo from "@/assets/logo-magelang.png";
 
 const GisMap = lazy(() => import("@/components/GisMap"));
@@ -54,6 +56,10 @@ function Index() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [manualOrder, setManualOrder] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     const s = localStorage.getItem("gis-sheet-url");
@@ -81,8 +87,9 @@ function Index() {
       return row ? [row] : [];
     });
   }, [rows, order]);
-  const moveLayer = (id: string, direction: -1 | 1) => {
-    const next = moveLayerOrder(order, id, direction);
+  const onDragEnd = ({ active: dragged, over }: DragEndEvent) => {
+    if (!over) return;
+    const next = dragLayerOrder(order, String(dragged.id), String(over.id));
     if (next === order) return;
     setLayerOrder(next);
     setManualOrder(true);
@@ -186,6 +193,8 @@ function Index() {
           {sheet.isLoading && <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Membaca Google Sheets…</div>}
           {sheet.error && <div className="m-2 flex gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{(sheet.error as Error).message}</div>}
           {!sheet.isLoading && !sheet.error && groups.length === 0 && <p className="p-4 text-sm text-muted-foreground">Tidak ada peta ditemukan.</p>}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={groups.flatMap(([kat, items]) => (collapsed[kat] ?? rows.length > 10) ? [] : items.map((r) => r.id))} strategy={verticalListSortingStrategy}>
           {groups.map(([kat, items]) => {
             const isCollapsed = collapsed[kat] ?? rows.length > 10;
             return (
@@ -201,26 +210,16 @@ function Index() {
                     const a = active[r.id];
                     const fields = a?.status === "ready" ? propKeys(a.data) : [];
                     return (
-                      <li key={r.id} className={`rounded-md border transition-colors ${a ? "border-primary/30 bg-card shadow-sm" : "border-transparent hover:bg-accent"} ${a?.hidden ? "opacity-60" : ""}`}>
+                      <SortableLayer key={r.id} id={r.id} name={r.nama} className={`rounded-md border transition-colors ${a ? "border-primary/30 bg-card shadow-sm" : "border-transparent hover:bg-accent"} ${a?.hidden ? "opacity-60" : ""}`}>
+                        {(handle) => <>
                         <div className="flex items-center gap-2 px-2 py-1.5">
+                          {handle}
                           <input type="checkbox" checked={!!a} onChange={() => toggle(r)} aria-label={`Tampilkan ${r.nama}`} className="h-4 w-4 shrink-0 cursor-pointer accent-primary" />
                           <button type="button" className="min-w-0 flex-1 text-left"
                             onClick={() => (a?.status === "ready" ? patch(r.id, { open: !a.open }) : toggle(r))}>
                             <div className="truncate text-[13px] font-medium leading-snug" title={r.nama}>{r.nama}</div>
                             {r.keterangan && <div className="truncate text-[11px] text-muted-foreground" title={r.keterangan}>{r.keterangan}</div>}
                           </button>
-                           <div className="flex shrink-0 flex-col">
-                             <Button variant="ghost" size="icon" aria-label={`Naikkan ${r.nama}`} title="Pindah ke atas"
-                               disabled={order.indexOf(r.id) === 0} onClick={() => moveLayer(r.id, -1)}
-                               className="h-4 w-5 rounded-sm p-0 text-muted-foreground [&_svg]:size-3">
-                               <ArrowUp />
-                             </Button>
-                             <Button variant="ghost" size="icon" aria-label={`Turunkan ${r.nama}`} title="Pindah ke bawah"
-                               disabled={order.indexOf(r.id) === order.length - 1} onClick={() => moveLayer(r.id, 1)}
-                               className="h-4 w-5 rounded-sm p-0 text-muted-foreground [&_svg]:size-3">
-                               <ArrowDown />
-                             </Button>
-                           </div>
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
                             <>
@@ -256,7 +255,8 @@ function Index() {
                           </div>
                         )}
                         {a?.status === "error" && <div className="flex gap-1.5 px-2 pb-1.5 pl-8 text-[11px] text-destructive"><AlertCircle className="h-3.5 w-3.5 shrink-0" />{a.error}</div>}
-                      </li>
+                        </>}
+                      </SortableLayer>
                     );
                   })}
                 </ul>
@@ -264,6 +264,8 @@ function Index() {
             </section>
             );
           })}
+          </SortableContext>
+          </DndContext>
         </div>
         <footer className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">Data diperbarui otomatis tiap 60 detik</footer>
       </aside>
