@@ -15,3 +15,4 @@
 - Keep sidebar order separate from download state and derive bottom-to-top map ordering with src/lib/layer-order.ts; reconcile sheet refreshes without resetting manual positions, and render contiguous category sections so grouping never changes that order.
 - Use dnd-kit sortable handles with pointer and keyboard sensors for sidebar reordering, committing order on drop so category regrouping does not interrupt dragging and checkbox/label controls remain independent.
 - Resolve cartographic colors through src/lib/layer-colors.ts and keep session manual overrides separate from activation state; apply current paint to existing MapLibre layers so legend and geometry update without downloading again.
+- Derive hierarchical region options, filtered geometry and adaptive summaries from a cached browser attribute index in src/lib/region-filter.ts; update existing map sources and fit filtered bounds without refetching or mutating downloaded data.

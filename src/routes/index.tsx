@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
+import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, type RegionFilter } from "@/lib/region-filter";
+import { RegionControls } from "@/components/RegionControls";
 import { Button } from "@/components/ui/button";
 import type { MapLayer } from "@/components/GisMap";
 import { SortableLayer } from "@/components/SortableLayer";
@@ -59,6 +61,7 @@ function Index() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [manualOrder, setManualOrder] = useState(false);
+  const [region, setRegion] = useState<RegionFilter>({ kecamatan: "", desa: "" });
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -131,16 +134,31 @@ function Index() {
     }
   };
 
-  const mapLayers: MapLayer[] = mapStackOrder(orderedRows.flatMap((r) => {
+  const checkedData = useMemo(() => orderedRows.flatMap((r) => active[r.id]?.status === "ready" ? [active[r.id].data] : []), [orderedRows, active]);
+  const regionChoices = useMemo(() => regionOptions(checkedData, region.kecamatan), [checkedData, region.kecamatan]);
+  const effectiveRegion = useMemo(() => {
+    if (!regionChoices.kecamatan.includes(region.kecamatan)) return { kecamatan: "", desa: "" };
+    return { kecamatan: region.kecamatan, desa: regionChoices.desa.includes(region.desa) ? region.desa : "" };
+  }, [region, regionChoices]);
+  useEffect(() => {
+    if (region.kecamatan !== effectiveRegion.kecamatan || region.desa !== effectiveRegion.desa) setRegion(effectiveRegion);
+  }, [region, effectiveRegion]);
+  const regionalViews = useMemo(() => Object.fromEntries(orderedRows.flatMap((r) => {
+    const a = active[r.id];
+    return a?.status === "ready" ? [[r.id, regionalView(a.data, effectiveRegion)]] : [];
+  })), [orderedRows, active, effectiveRegion]);
+  const mapLayers: MapLayer[] = useMemo(() => mapStackOrder(orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready") return [];
-    return [{ id: r.id, data: a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
-  }), manualOrder);
+    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
+  }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews]);
+  const regionBounds = useMemo(() => mergeRegionBounds(orderedRows.flatMap((r) => active[r.id]?.status === "ready" && !active[r.id].hidden ? [regionalViews[r.id]?.bounds ?? null] : [])), [orderedRows, active, regionalViews]);
+  const regionScope = effectiveRegion.desa || effectiveRegion.kecamatan || "Se-Kabupaten";
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
   const saveSettings = () => {
     localStorage.setItem("gis-sheet-url", draft);
-    setSheetUrl(draft); setActive({}); setManualColors({}); setLayerOrder([]); setManualOrder(false); setShowSettings(false);
+    setSheetUrl(draft); setActive({}); setManualColors({}); setLayerOrder([]); setManualOrder(false); setRegion({ kecamatan: "", desa: "" }); setShowSettings(false);
   };
 
   return (
@@ -226,7 +244,7 @@ function Index() {
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
                             <>
-                              <Button variant="ghost" size="icon" aria-label={`Pengaturan warna dan label ${r.nama}`} title="Warna dan label" onClick={() => patch(r.id, { open: !a.open })}
+                              <Button variant="ghost" size="icon" aria-label={`Pengaturan warna dan label ${r.nama}`} title="Warna, label dan rekap" onClick={() => patch(r.id, { open: !a.open })}
                                 className={`h-5 w-5 shrink-0 p-0 hover:text-primary ${a.open || a.label || manualColors[r.id] ? "text-primary" : "text-muted-foreground"}`}>
                                 <Settings className="h-3.5 w-3.5" />
                               </Button>
@@ -239,7 +257,8 @@ function Index() {
                           )}
                         </div>
                         {a?.status === "ready" && a.open && (
-                          <div className="flex items-center gap-2 px-2 pb-1.5 pl-8">
+                          <div className="space-y-1.5 px-2 pb-2 pl-8">
+                          <div className="flex items-center gap-2">
                             <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
                               Warna
                               <input type="color" value={colorFor(r)} aria-label={`Warna ${r.nama}`} title="Pilih warna peta"
@@ -255,6 +274,12 @@ function Index() {
                               <option value="">Tanpa label</option>
                               {fields.map((f) => <option key={f} value={f}>{f}</option>)}
                             </select>
+                          </div>
+                          <div aria-label={`Rekap ${r.nama}`} className="border-t border-border pt-1.5 text-[11px]">
+                            <div className="mb-1 flex items-start justify-between gap-2 text-muted-foreground"><span className="min-w-0 break-words font-medium">{regionScope}</span><span className="shrink-0 tabular-nums">{formatSummaryNumber(regionalViews[r.id]?.count ?? 0)} objek</span></div>
+                            {regionalViews[r.id]?.summary.map((item) => <div key={`${item.label}-${item.unit}`} className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 py-0.5"><span className="min-w-0 break-words text-muted-foreground">{item.label}:</span><span className="font-medium tabular-nums">{formatSummaryNumber(item.value)} {item.unit}</span></div>)}
+                            {effectiveRegion.kecamatan && !regionalViews[r.id]?.hasRegion && <p className="mt-1 text-muted-foreground">Atribut Kecamatan tidak tersedia.</p>}
+                          </div>
                           </div>
                         )}
                         {a?.status === "loading" && (
@@ -281,24 +306,27 @@ function Index() {
         <footer className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">Data diperbarui otomatis tiap 60 detik</footer>
       </aside>
 
-      <main className="relative flex-1">
+      <main className="relative min-w-0 flex-1">
         <ClientOnly fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
           <Suspense fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <GisMap layers={mapLayers} focus={focus} satellite={satellite} />
+            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} />
           </Suspense>
         </ClientOnly>
 
-        <div className="absolute left-4 top-4 flex overflow-hidden rounded-lg border border-border bg-card shadow-md">
-          <button onClick={() => setSatellite(false)} className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium ${!satellite ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}>
+        <div className="absolute left-3 right-12 top-3 flex flex-wrap items-start gap-2">
+        <div className="flex shrink-0 overflow-hidden rounded-lg border border-border bg-card shadow-md">
+          <Button size="sm" variant="ghost" onClick={() => setSatellite(false)} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${!satellite ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
             <MapIcon className="h-3.5 w-3.5" />Peta
-          </button>
-          <button onClick={() => setSatellite(true)} className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium ${satellite ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSatellite(true)} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${satellite ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
             <Satellite className="h-3.5 w-3.5" />Satelit
-          </button>
+          </Button>
+        </div>
+        <RegionControls filter={effectiveRegion} options={regionChoices} onChange={setRegion} />
         </div>
 
         {loadingCount > 0 && (
-          <div className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-medium text-primary-foreground shadow-lg">
+          <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-lg">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />Memuat {loadingCount} layer…
           </div>
         )}
