@@ -4,7 +4,7 @@ import { fertilizerGroups, isFertilizerLayer } from "./fertilizer";
 const f = (p: Record<string, unknown>, x: number) => ({ type: "Feature", properties: p, geometry: { type: "Point", coordinates: [x, -7] } });
 const geo = { type: "FeatureCollection", features: [
   f({ KECAMATAN: "A", DESA: "Satu", "Urea (kg)": 100, "NPK (kg)": 50, "Za (kg)": 0, "Organik (kg)": 10, "NPK formula (kg)": 5 }, 110),
-  f({ KECAMATAN: "A", DESA: "Dua", "Urea (kg)": 200, "NPK (kg)": "1.000" }, 111),
+  f({ KECAMATAN: "A", DESA: "Dua", "Urea (kg)": 200, "NPK (kg)": 1000 }, 111),
   f({ KECAMATAN: "B", DESA: "Satu", "Urea (kg)": 1 }, 112),
 ] };
 
