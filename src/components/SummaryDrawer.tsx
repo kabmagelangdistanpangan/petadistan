@@ -1,10 +1,10 @@
 import { X } from "lucide-react";
 import { Button } from "./ui/button";
 import { FERTILIZERS, formatKg, type PieGroup } from "@/lib/fertilizer";
-import { formatSummaryNumber, type RegionFilter, type SummaryItem } from "@/lib/region-filter";
+import { formatSummaryNumber, type RegionBars, type RegionFilter, type SummaryItem } from "@/lib/region-filter";
 
 export type DrawerPie = { id: string; nama: string; groups: PieGroup[] };
-export type DrawerRecap = { id: string; nama: string; color: string; count: number; summary: SummaryItem[] };
+export type DrawerRecap = { id: string; nama: string; color: string; count: number; summary: SummaryItem[]; chart: RegionBars };
 
 export function SummaryDrawer({ open, onClose, pies, recaps, filter, scope, onPick }: {
   open: boolean; onClose: () => void; pies: DrawerPie[]; recaps: DrawerRecap[]; filter: RegionFilter; scope: string; onPick: (name: string) => void;
@@ -47,6 +47,14 @@ export function SummaryDrawer({ open, onClose, pies, recaps, filter, scope, onPi
         {recaps.map((r) => <div key={r.id} className="rounded-md border border-border p-2">
           <div className="mb-1 flex items-center justify-between gap-2 font-medium"><span className="flex min-w-0 items-center gap-1.5"><span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: r.color }} /><span className="truncate">{r.nama}</span></span><span className="shrink-0 tabular-nums text-muted-foreground">{formatSummaryNumber(r.count)} objek</span></div>
           {r.summary.map((s) => <div key={s.label} className="flex justify-between gap-2 py-0.5"><span className="text-muted-foreground">{s.label}</span><span className="tabular-nums">{formatSummaryNumber(s.value)} {s.unit}</span></div>)}
+          {(() => { const max = Math.max(1, ...r.chart.bars.map((b) => b.value)); return <>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">{r.chart.metric} ({r.chart.unit}) per {filter.kecamatan ? "desa" : "kecamatan"}</p>
+            <ul className="mt-1 space-y-1">{r.chart.bars.map((b) => <li key={b.name}>
+              <button type="button" onClick={() => onPick(b.name)} disabled={!!filter.desa || b.name === "Tanpa nama"} title={`${b.name}: ${formatSummaryNumber(b.value)} ${r.chart.unit}`}
+                className="w-full rounded px-1 py-0.5 text-left hover:bg-accent disabled:cursor-default">
+                <div className="flex justify-between gap-2"><span className="truncate">{b.name}</span><span className="shrink-0 tabular-nums text-muted-foreground">{formatSummaryNumber(b.value)}</span></div>
+                <div className="mt-0.5 h-2 rounded-sm" style={{ width: `${Math.max(2, (b.value / max) * 100)}%`, background: r.color }} />
+              </button></li>)}</ul></>; })()}
         </div>)}
       </section>}
     </div>

@@ -86,3 +86,21 @@ export function mergeRegionBounds(bounds: (ReturnType<typeof bbox>)[]): ReturnTy
 }
 
 export const formatSummaryNumber = (value: number) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 }).format(value);
+export type RegionBars = { metric: string; unit: SummaryItem["unit"]; bars: { name: string; value: number }[] };
+
+/** Per-kecamatan bars district-wide, per-desa once a kecamatan is chosen; metric follows the layer's attributes (Luas > Panjang > count). */
+export function regionBars(geo: any, filter: RegionFilter): RegionBars {
+  const index = regionIndex(geo);
+  const byDesa = !!filter.kecamatan;
+  const metric = index.hasLuas ? "Luas" : index.hasPanjang ? "Panjang" : "Jumlah";
+  const unit: SummaryItem["unit"] = index.hasLuas ? "Hektare" : index.hasPanjang ? "Meter" : "Objek/Blok";
+  const groups = new Map<string, { name: string; value: number }>();
+  for (const entry of index.entries) {
+    if (!matches(entry, filter)) continue;
+    const name = (byDesa ? entry.desa : entry.kecamatan) || "Tanpa nama";
+    const group = groups.get(normalize(name)) ?? { name, value: 0 };
+    group.value += index.hasLuas ? entry.luas ?? 0 : index.hasPanjang ? entry.panjang ?? 0 : 1;
+    groups.set(normalize(name), group);
+  }
+  return { metric, unit, bars: [...groups.values()].sort((a, b) => b.value - a.value) };
+}

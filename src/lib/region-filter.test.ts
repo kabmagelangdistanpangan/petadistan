@@ -51,3 +51,14 @@ describe("hierarchical region rules", () => {
     expect(mergeRegionBounds([view.bounds, [111, -8, 112, -6], null])).toEqual([110, -8, 112, -6]);
   });
 });
+import { regionBars } from "./region-filter";
+describe("summary drawer bars", () => {
+  it("uses Panjang per kecamatan, then per desa inside the chosen kecamatan", () => {
+    expect(regionBars(irrigation, { kecamatan: "", desa: "" })).toEqual({ metric: "Panjang", unit: "Meter", bars: [{ name: "A", value: 13950 }, { name: "B", value: 50 }] });
+    expect(regionBars(irrigation, { kecamatan: "A", desa: "" }).bars).toEqual([{ name: "Satu", value: 12500 }, { name: "Dua", value: 1450 }]);
+  });
+  it("prefers Luas in Hektare and falls back to object counts", () => {
+    expect(regionBars(feature({ Kecamatan: "A", Luas: 4 }), { kecamatan: "", desa: "" }).unit).toBe("Hektare");
+    expect(regionBars({ type: "FeatureCollection", features: [feature({ Kecamatan: "A" }), feature({ Kecamatan: "A" })] }, { kecamatan: "", desa: "" }).bars).toEqual([{ name: "A", value: 2 }]);
+  });
+});

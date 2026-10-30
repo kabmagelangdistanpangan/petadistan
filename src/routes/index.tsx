@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
-import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, type RegionFilter } from "@/lib/region-filter";
+import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, regionBars, type RegionFilter } from "@/lib/region-filter";
 import { FERTILIZERS, fertilizerGroups, isFertilizerLayer } from "@/lib/fertilizer";
 import { SummaryDrawer } from "@/components/SummaryDrawer";
 import { RegionControls } from "@/components/RegionControls";
@@ -167,8 +167,8 @@ function Index() {
   const recaps = useMemo(() => orderedRows.flatMap((r) => {
     const a = active[r.id];
     const v = regionalViews[r.id];
-    return a?.status === "ready" && v && !isFertilizerLayer(r.kategori, r.nama) ? [{ id: r.id, nama: r.nama, color: colorFor(r), count: v.count, summary: v.summary }] : [];
-  }), [orderedRows, active, regionalViews, manualColors]);
+    return a?.status === "ready" && v && !isFertilizerLayer(r.kategori, r.nama) ? [{ id: r.id, nama: r.nama, color: colorFor(r), count: v.count, summary: v.summary, chart: regionBars(a.data, effectiveRegion) }] : [];
+  }), [orderedRows, active, regionalViews, manualColors, effectiveRegion]);
   const pickRegion = (name: string) => setRegion((cur) => (cur.kecamatan ? { ...cur, desa: name } : { kecamatan: name, desa: "" }));
   const regionBounds = useMemo(() => mergeRegionBounds(orderedRows.flatMap((r) => {
     const a = active[r.id];
