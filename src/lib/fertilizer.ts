@@ -2,11 +2,11 @@ import { bbox } from "./gis";
 import { attributeNumber, regionIndex, type RegionFilter } from "./region-filter";
 
 export const FERTILIZERS = [
-  { key: "urea", label: "Urea", color: "#0ea5e9" },
-  { key: "npk", label: "NPK", color: "#10b981" },
-  { key: "za", label: "Za", color: "#f59e0b" },
-  { key: "organik", label: "Organik", color: "#8b5cf6" },
-  { key: "npkformula", label: "NPK Formula", color: "#e11d48" },
+  { key: "urea", label: "Urea", color: "#2563eb" },
+  { key: "npk", label: "NPK", color: "#ea580c" },
+  { key: "za", label: "Za", color: "#eab308" },
+  { key: "organik", label: "Organik", color: "#15803d" },
+  { key: "npkformula", label: "NPK Formula", color: "#c026d3" },
 ] as const;
 
 export type FertKey = (typeof FERTILIZERS)[number]["key"];
