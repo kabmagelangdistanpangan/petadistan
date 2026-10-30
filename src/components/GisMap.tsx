@@ -5,28 +5,57 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { bbox } from "@/lib/gis";
 import { syncMapStack } from "@/lib/layer-order";
 import { layerPaintColors } from "@/lib/layer-colors";
+import { FERTILIZERS, formatKg, pieGradient, type PieGroup } from "@/lib/fertilizer";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean; pie?: boolean };
+export type MapPies = { id: string; nama: string; groups: PieGroup[] }[];
 
 const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 export default function GisMap({
-   layers, focus, satellite, regionKey, regionBounds,
-}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null }) {
+   layers, focus, satellite, regionKey, regionBounds, pies = [],
+}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
   const added = useRef(new Set<string>());
   const sourceData = useRef(new Map<string, any>());
+  const markers = useRef<maplibregl.Marker[]>([]);
   const cameraRef = useRef({ regionKey, regionBounds, focus });
   cameraRef.current = { regionKey, regionBounds, focus };
   const layersRef = useRef(layers);
   layersRef.current = layers;
   const satRef = useRef(satellite);
   satRef.current = satellite;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    markers.current.forEach((m) => m.remove());
+    markers.current = [];
+    for (const p of pies) {
+      const max = Math.max(1, ...p.groups.map((g) => g.total));
+      for (const g of p.groups) {
+        if (!g.total) continue;
+        const size = Math.round(22 + 30 * Math.sqrt(g.total / max));
+        const node = document.createElement("button");
+        node.type = "button";
+        node.className = "gis-pie";
+        node.style.cssText = `width:${size}px;height:${size}px;background:${pieGradient(g.values, g.total)}`;
+        node.title = `${g.name}: ${formatKg(g.total)}`;
+        node.setAttribute("aria-label", `Diagram pupuk ${g.name}`);
+        const rows = FERTILIZERS.filter((f) => g.values[f.key]).map((f) =>
+          `<tr><th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:${f.color}"></span>${f.label}</th><td>${esc(formatKg(g.values[f.key]))} (${Math.round((g.values[f.key] / g.total) * 100)}%)</td></tr>`).join("");
+        const popup = new maplibregl.Popup({ offset: size / 2 + 2, maxWidth: "300px", className: "gis-popup" })
+          .setHTML(`<div class="gis-pop"><div class="gis-pop-head">${esc(g.name)}</div><p>${esc(p.nama)}</p><div class="gis-pop-tbl"><table>${rows}<tr><th>Total</th><td><b>${esc(formatKg(g.total))}</b></td></tr></table></div></div>`);
+        markers.current.push(new maplibregl.Marker({ element: node }).setLngLat(g.center).setPopup(popup).addTo(map));
+      }
+    }
+  }, [pies]);
+
 
   const sync = () => {
     const map = mapRef.current;
@@ -81,6 +110,10 @@ export default function GisMap({
       map.setPaintProperty(`lyr-${l.id}-line`, "line-color", paint.stroke);
       map.setPaintProperty(`lyr-${l.id}-pt`, "circle-color", paint.fill);
       if (l.boundary) map.setPaintProperty(`lyr-${l.id}-pt`, "circle-stroke-color", paint.stroke);
+      if (l.pie) {
+        map.setPaintProperty(`lyr-${l.id}-fill`, "fill-opacity", 0.05);
+        map.setPaintProperty(`lyr-${l.id}-line`, "line-color", "#64748b");
+      }
       const vis = l.visible === false ? "none" : "visible";
       for (const k of ["fill", "line", "pt"])
         map.getLayer(`lyr-${l.id}-${k}`) && map.setLayoutProperty(`lyr-${l.id}-${k}`, "visibility", vis);
