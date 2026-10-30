@@ -4,11 +4,13 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3,
 } from "lucide-react";
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
 import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, type RegionFilter } from "@/lib/region-filter";
+import { FERTILIZERS, fertilizerGroups, isFertilizerLayer } from "@/lib/fertilizer";
+import { SummaryDrawer } from "@/components/SummaryDrawer";
 import { RegionControls } from "@/components/RegionControls";
 import { Button } from "@/components/ui/button";
 import type { MapLayer } from "@/components/GisMap";
@@ -62,6 +64,7 @@ function Index() {
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [manualOrder, setManualOrder] = useState(false);
   const [region, setRegion] = useState<RegionFilter>({ kecamatan: "", desa: "" });
+  const [chartOpen, setChartOpen] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -153,8 +156,20 @@ function Index() {
   const mapLayers: MapLayer[] = useMemo(() => mapStackOrder(orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready") return [];
-    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama) }];
+    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama) }];
   }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews]);
+  const pies = useMemo(() => orderedRows.flatMap((r) => {
+    const a = active[r.id];
+    if (a?.status !== "ready" || !isFertilizerLayer(r.kategori, r.nama)) return [];
+    return [{ id: r.id, nama: r.nama, hidden: !!a.hidden, groups: fertilizerGroups(a.data, effectiveRegion) }];
+  }), [orderedRows, active, effectiveRegion]);
+  const mapPies = useMemo(() => pies.filter((p) => !p.hidden), [pies]);
+  const recaps = useMemo(() => orderedRows.flatMap((r) => {
+    const a = active[r.id];
+    const v = regionalViews[r.id];
+    return a?.status === "ready" && v && !isFertilizerLayer(r.kategori, r.nama) ? [{ id: r.id, nama: r.nama, color: colorFor(r), count: v.count, summary: v.summary }] : [];
+  }), [orderedRows, active, regionalViews, manualColors]);
+  const pickRegion = (name: string) => setRegion((cur) => (cur.kecamatan ? { ...cur, desa: name } : { kecamatan: name, desa: "" }));
   const regionBounds = useMemo(() => mergeRegionBounds(orderedRows.flatMap((r) => {
     const a = active[r.id];
     return a?.status === "ready" && !a.hidden ? [regionalViews[r.id]?.bounds ?? null] : [];
@@ -315,7 +330,7 @@ function Index() {
       <main className="relative min-w-0 flex-1">
         <ClientOnly fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
           <Suspense fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} />
+            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} />
           </Suspense>
         </ClientOnly>
 
@@ -330,6 +345,18 @@ function Index() {
         </div>
         <RegionControls filter={effectiveRegion} options={regionChoices} onChange={setRegion} />
         </div>
+
+        <Button variant="outline" size="icon" aria-label="Buka grafik rangkuman" title="Grafik rangkuman" onClick={() => setChartOpen(true)}
+          className="absolute right-2.5 top-[110px] h-[29px] w-[29px] rounded-md bg-card shadow-md"><BarChart3 className="h-4 w-4" /></Button>
+
+        {mapPies.length > 0 && (
+          <div aria-label="Legenda pupuk" className="absolute bottom-8 left-3 rounded-lg border border-border bg-card/95 px-3 py-2 text-[11px] shadow-md">
+            <div className="mb-1 font-semibold">Jenis Pupuk · per {effectiveRegion.kecamatan ? "desa" : "kecamatan"}</div>
+            {FERTILIZERS.map((f) => <div key={f.key} className="flex items-center gap-1.5 py-px"><span className="h-2.5 w-2.5 rounded-full" style={{ background: f.color }} />{f.label}</div>)}
+          </div>
+        )}
+
+        <SummaryDrawer open={chartOpen} onClose={() => setChartOpen(false)} pies={pies} recaps={recaps} filter={effectiveRegion} scope={regionScope} onPick={pickRegion} />
 
         {loadingCount > 0 && (
           <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground shadow-lg">
