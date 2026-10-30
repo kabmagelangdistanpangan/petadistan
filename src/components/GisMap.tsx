@@ -51,7 +51,8 @@ export default function GisMap({
           `<tr><th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:${f.color}"></span>${f.label}</th><td>${esc(formatKg(g.values[f.key]))} (${Math.round((g.values[f.key] / g.total) * 100)}%)</td></tr>`).join("");
         const popup = new maplibregl.Popup({ offset: size / 2 + 2, maxWidth: "300px", className: "gis-popup" })
           .setHTML(`<div class="gis-pop"><div class="gis-pop-head">${esc(g.name)}</div><p>${esc(p.nama)}</p><div class="gis-pop-tbl"><table>${rows}<tr><th>Total</th><td><b>${esc(formatKg(g.total))}</b></td></tr></table></div></div>`);
-        markers.current.push(new maplibregl.Marker({ element: node }).setLngLat(g.center).setPopup(popup).addTo(map));
+        node.addEventListener("click", (e) => { e.stopPropagation(); popup.setLngLat(g.center).addTo(map); });
+        markers.current.push(new maplibregl.Marker({ element: node }).setLngLat(g.center).addTo(map));
       }
     }
   }, [pies]);
