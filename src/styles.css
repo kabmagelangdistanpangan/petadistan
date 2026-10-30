@@ -157,3 +157,6 @@
 .layer-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
 .layer-color-picker::-webkit-color-swatch { border: 0; border-radius: 3px; }
 .layer-color-picker::-moz-color-swatch { border: 0; border-radius: 3px; }
+
+.gis-pie { border-radius: 9999px; border: 2px solid var(--card); box-shadow: 0 1px 4px rgb(0 0 0 / 0.35); cursor: pointer; padding: 0; }
+.gis-pie:hover { transform: scale(1.08); }
