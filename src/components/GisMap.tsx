@@ -47,6 +47,7 @@ export default function GisMap({
         node.style.cssText = `width:${size}px;height:${size}px;background:${pieGradient(g.values, g.total)}`;
         node.title = `${g.name}: ${formatKg(g.total)}`;
         node.setAttribute("aria-label", `Diagram pupuk ${g.name}`);
+        node.addEventListener("click", (e) => e.stopPropagation());
         const rows = FERTILIZERS.filter((f) => g.values[f.key]).map((f) =>
           `<tr><th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:${f.color}"></span>${f.label}</th><td>${esc(formatKg(g.values[f.key]))} (${Math.round((g.values[f.key] / g.total) * 100)}%)</td></tr>`).join("");
         const popup = new maplibregl.Popup({ offset: size / 2 + 2, maxWidth: "300px", className: "gis-popup" })
