@@ -173,6 +173,7 @@ export default function GisMap({
       fitCamera(cameraRef.current.regionKey !== "|");
     });
     map.on("click", (e) => {
+      if ((e.originalEvent.target as HTMLElement | null)?.closest?.(".gis-pie")) return;
       const ids = [...added.current].flatMap((id) => [`lyr-${id}-pt`, `lyr-${id}-line`, `lyr-${id}-fill`]);
       const f = map.queryRenderedFeatures(e.point, { layers: ids })[0];
       if (!f) return;
