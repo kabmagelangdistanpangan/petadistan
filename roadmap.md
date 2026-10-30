@@ -7,5 +7,5 @@
 - [x] Replace arrow controls with compact drag-and-drop and verify map stacking after a drop.
 - [x] Apply newest-first defaults and compact manual layer moves.
 - [x] Synchronize map stacking, retaining administrative boundaries underneath.
-- [x] Test ordering rules and verify manual moves in the running application.- [ ] Pupuk layers: per-kecamatan/desa pie charts on map, click popup, slice legend.
-- [ ] Floating chart button + right drawer with clickable kecamatan/desa bars and active-layer recap.
+- [x] Test ordering rules and verify manual moves in the running application.- [x] Pupuk layers: per-kecamatan/desa pie charts on map, click popup, slice legend.
+- [x] Floating chart button + right drawer with clickable kecamatan/desa bars and active-layer recap.
