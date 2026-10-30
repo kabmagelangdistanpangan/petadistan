@@ -18,15 +18,15 @@ export function SummaryDrawer({ open, onClose, pies, recaps, filter, scope, onPi
     <div className="flex-1 space-y-4 overflow-y-auto p-4 text-xs">
       {!pies.length && !recaps.length && <p className="text-muted-foreground">Centang peta di panel kiri untuk melihat grafik.</p>}
       {pies.map((p) => {
-        const totals = Object.fromEntries(FERTILIZERS.map((f) => [f.key, p.groups.reduce((s, g) => s + g.values[f.key], 0)]));
+        const totals = Object.fromEntries(FERTILIZERS.map((f) => [f.key, p.groups.reduce((s, g) => s + g.values[f.key], 0)])) as Record<string, number>;
         const grand = Object.values(totals).reduce((s, v) => s + v, 0);
         const max = Math.max(1, ...p.groups.map((g) => g.total));
-        const types = FERTILIZERS.filter((f) => totals[f.key]).sort((a, b) => totals[b.key] - totals[a.key]);
+        const types = FERTILIZERS.filter((f) => totals[f.key]).sort((a, b) => (totals[b.key] ?? 0) - (totals[a.key] ?? 0));
         return <section key={p.id} className="space-y-2">
           <h3 className="font-semibold">{p.nama}</h3>
           <div className="rounded-md bg-muted/60 p-2">
             <div className="flex justify-between font-medium"><span>Total</span><span className="tabular-nums">{formatKg(grand)}</span></div>
-            {types.map((f) => <div key={f.key} className="flex items-center justify-between py-0.5"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: f.color }} />{f.label}</span><span className="tabular-nums">{formatKg(totals[f.key])}</span></div>)}
+            {types.map((f) => <div key={f.key} className="flex items-center justify-between py-0.5"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ background: f.color }} />{f.label}</span><span className="tabular-nums">{formatKg(totals[f.key] ?? 0)}</span></div>)}
           </div>
           <p className="text-[11px] text-muted-foreground">Per {filter.kecamatan ? "desa" : "kecamatan"}{filter.desa ? "" : " · klik batang untuk memfilter"}</p>
           <ul className="space-y-1">

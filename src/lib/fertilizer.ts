@@ -9,7 +9,9 @@ export const FERTILIZERS = [
   { key: "npkformula", label: "NPK Formula", color: "#e11d48" },
 ] as const;
 
-export type PieGroup = { name: string; center: [number, number]; values: Record<string, number>; total: number };
+export type FertKey = (typeof FERTILIZERS)[number]["key"];
+export type FertValues = Record<FertKey, number>;
+export type PieGroup = { name: string; center: [number, number]; values: FertValues; total: number };
 
 const fieldKey = (k: string) => k.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z]/g, "");
 const norm = (v: string) => v.trim().replace(/\s+/g, " ").toLocaleLowerCase("id");
@@ -20,17 +22,17 @@ export const isFertilizerLayer = (kategori: string, nama: string) => /pupuk|rdkk
 /** Per-kecamatan groups district-wide; per-desa groups once a kecamatan is selected. */
 export function fertilizerGroups(geo: any, filter: RegionFilter): PieGroup[] {
   const byDesa = !!filter.kecamatan;
-  const groups = new Map<string, { name: string; features: any[]; values: Record<string, number> }>();
+  const groups = new Map<string, { name: string; features: any[]; values: FertValues }>();
   for (const e of regionIndex(geo).entries) {
     if (filter.kecamatan && norm(e.kecamatan) !== norm(filter.kecamatan)) continue;
     if (filter.desa && norm(e.desa) !== norm(filter.desa)) continue;
     const name = (byDesa ? e.desa : e.kecamatan) || "Tanpa nama";
     let g = groups.get(norm(name));
-    if (!g) { g = { name, features: [], values: Object.fromEntries(FERTILIZERS.map((f) => [f.key, 0])) }; groups.set(norm(name), g); }
+    if (!g) { g = { name, features: [], values: Object.fromEntries(FERTILIZERS.map((f) => [f.key, 0])) as FertValues }; groups.set(norm(name), g); }
     g.features.push(e.feature);
     for (const [k, v] of Object.entries(e.feature?.properties ?? {})) {
       const id = fieldKey(k);
-      if (id in g.values) g.values[id] += attributeNumber(v) ?? 0;
+      if (id in g.values) g.values[id as FertKey] += attributeNumber(v) ?? 0;
     }
   }
   return [...groups.values()].flatMap((g) => {
@@ -41,7 +43,7 @@ export function fertilizerGroups(geo: any, filter: RegionFilter): PieGroup[] {
   }).sort((a, b) => b.total - a.total);
 }
 
-export function pieGradient(values: Record<string, number>, total: number) {
+export function pieGradient(values: FertValues, total: number) {
   if (!total) return "var(--muted)";
   let at = 0;
   const stops = FERTILIZERS.filter((f) => values[f.key]).map((f) => {

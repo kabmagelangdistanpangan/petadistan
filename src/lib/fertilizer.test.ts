@@ -17,8 +17,8 @@ describe("fertilizer pies", () => {
   it("aggregates per kecamatan district-wide, keeping NPK and NPK formula apart", () => {
     const g = fertilizerGroups(geo, { kecamatan: "", desa: "" });
     expect(g.map((x) => x.name)).toEqual(["A", "B"]);
-    expect(g[0].values).toEqual({ urea: 300, npk: 1050, za: 0, organik: 10, npkformula: 5 });
-    expect(g[0].center).toEqual([110.5, -7]);
+    expect(g[0]!.values).toEqual({ urea: 300, npk: 1050, za: 0, organik: 10, npkformula: 5 });
+    expect(g[0]!.center).toEqual([110.5, -7]);
   });
   it("aggregates per desa within the selected kecamatan", () => {
     expect(fertilizerGroups(geo, { kecamatan: "A", desa: "" }).map((x) => [x.name, x.total])).toEqual([["Dua", 1200], ["Satu", 165]]);
