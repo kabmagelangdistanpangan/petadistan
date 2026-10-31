@@ -1,6 +1,6 @@
 # Tasks
-- [ ] Add district pie drill-down, village popups, and smaller markers with one frontmost fertilizer layer.
-- [ ] Compare checked fertilizer layers with regional absorption percentages; test calculations and UI.
+- [x] Add district pie drill-down, village popups, and smaller markers with one frontmost fertilizer layer.
+- [x] Compare checked fertilizer layers with regional absorption percentages; test calculations and UI (live RDKK; controlled Realisasi fixture because it is not yet in the sheet).
 - [x] Add browser-only hierarchical Kecamatan/Desa filters from checked map attributes.
 - [x] Add adaptive regional sums and counts inside compact layer settings.
 - [x] Synchronize filtered geometry and smooth camera focus without redownloads; test rules and real UI flow.
