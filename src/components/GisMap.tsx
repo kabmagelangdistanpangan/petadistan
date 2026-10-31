@@ -1,11 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Button } from "./ui/button";
+import type { RegionFilter } from "@/lib/region-filter";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { bbox } from "@/lib/gis";
 import { syncMapStack } from "@/lib/layer-order";
 import { layerPaintColors } from "@/lib/layer-colors";
-import { FERTILIZERS, formatKg, pieGradient, type PieGroup } from "@/lib/fertilizer";
+import { FERTILIZERS, formatKg, pieGradient, pieDiameter, pieClickDistrict, type PieGroup } from "@/lib/fertilizer";
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -16,14 +19,18 @@ const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 export default function GisMap({
-   layers, focus, satellite, regionKey, regionBounds, pies = [],
-}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies }) {
+   layers, focus, satellite, regionKey, regionBounds, pies = [], filter, onDistrictPick,
+}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
   const added = useRef(new Set<string>());
   const sourceData = useRef(new Map<string, any>());
   const markers = useRef<maplibregl.Marker[]>([]);
+  const piePopup = useRef<maplibregl.Popup | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const interaction = useRef({ filter, onDistrictPick });
+  interaction.current = { filter, onDistrictPick };
   const cameraRef = useRef({ regionKey, regionBounds, focus });
   cameraRef.current = { regionKey, regionBounds, focus };
   const layersRef = useRef(layers);
@@ -40,7 +47,7 @@ export default function GisMap({
       const max = Math.max(1, ...p.groups.map((g) => g.total));
       for (const g of p.groups) {
         if (!g.total) continue;
-        const size = Math.round(22 + 30 * Math.sqrt(g.total / max));
+        const size = pieDiameter(g.total, max);
         const node = document.createElement("button");
         node.type = "button";
         node.className = "gis-pie";
@@ -51,11 +58,26 @@ export default function GisMap({
           `<tr><th><span style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:${f.color}"></span>${f.label}</th><td>${esc(formatKg(g.values[f.key]))} (${Math.round((g.values[f.key] / g.total) * 100)}%)</td></tr>`).join("");
         const popup = new maplibregl.Popup({ offset: size / 2 + 2, maxWidth: "300px", className: "gis-popup" })
           .setHTML(`<div class="gis-pop"><div class="gis-pop-head">${esc(g.name)}</div><p>${esc(p.nama)}</p><div class="gis-pop-tbl"><table>${rows}<tr><th>Total</th><td><b>${esc(formatKg(g.total))}</b></td></tr></table></div></div>`);
-        node.addEventListener("click", (e) => { e.stopPropagation(); popup.setLngLat(g.center).addTo(map); });
+        node.addEventListener("click", (e) => {
+          e.stopPropagation();
+          piePopup.current?.remove();
+          piePopup.current = popup;
+          popup.setLngLat(g.center).addTo(map);
+          const district = pieClickDistrict(interaction.current.filter, g.name);
+          if (district) {
+            const action = document.createElement("div");
+            popup.getElement().querySelector(".gis-pop")?.append(action);
+            const root = createRoot(action);
+            root.render(<Button size="sm" className="mt-2 w-full" onClick={() => { interaction.current.onDistrictPick(district); popup.remove(); }}>Lihat Rincian Desa</Button>);
+            popup.once("close", () => root.unmount());
+            interaction.current.onDistrictPick(district);
+          }
+        });
         markers.current.push(new maplibregl.Marker({ element: node }).setLngLat(g.center).addTo(map));
       }
     }
-  }, [pies]);
+    return () => { markers.current.forEach((m) => m.remove()); markers.current = []; };
+  }, [pies, mapReady]);
 
 
   const sync = () => {
@@ -168,6 +190,7 @@ export default function GisMap({
       const first = map.getStyle().layers[0]?.id;
       map.addLayer({ id: "satellite", type: "raster", source: "esri", layout: { visibility: "none" } }, first);
       readyRef.current = true;
+      setMapReady(true);
       applyBasemap();
       sync();
       fitCamera(cameraRef.current.regionKey !== "|");
@@ -191,7 +214,7 @@ export default function GisMap({
       const ids = [...added.current].flatMap((id) => [`lyr-${id}-pt`, `lyr-${id}-line`, `lyr-${id}-fill`]);
       map.getCanvas().style.cursor = ids.length && map.queryRenderedFeatures(e.point, { layers: ids }).length ? "pointer" : "";
     });
-    return () => { readyRef.current = false; added.current.clear(); sourceData.current.clear(); mapRef.current = null; map.remove(); };
+    return () => { piePopup.current?.remove(); readyRef.current = false; added.current.clear(); sourceData.current.clear(); mapRef.current = null; map.remove(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

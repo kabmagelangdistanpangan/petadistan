@@ -12,6 +12,34 @@ export const FERTILIZERS = [
 export type FertKey = (typeof FERTILIZERS)[number]["key"];
 export type FertValues = Record<FertKey, number>;
 export type PieGroup = { name: string; center: [number, number]; values: FertValues; total: number };
+export type FertilizerSeries = { id: string; nama: string; groups: PieGroup[] };
+
+/** Match the actual map stack (bottom-to-top), ignoring hidden fertilizer layers. */
+export function primaryFertilizerPies<T extends { id: string; hidden?: boolean }>(pies: T[], stack: { id: string; visible?: boolean }[]): T[] {
+  const primary = [...stack].reverse().find((layer) => layer.visible !== false && pies.some((pie) => pie.id === layer.id && !pie.hidden));
+  return primary ? pies.filter((pie) => pie.id === primary.id) : [];
+}
+
+export const pieDiameter = (total: number, max: number) => Math.round((22 + 30 * Math.sqrt(total / Math.max(1, max))) * 0.82);
+export const absorptionPercent = (realization: number, allocation: number): number | null => allocation > 0 ? realization / allocation * 100 : null;
+export const pieClickDistrict = (filter: RegionFilter, name: string): string | null => !filter.kecamatan && name !== "Tanpa nama" ? name : null;
+
+/** Union regions by normalized name; absent series values are zero, zero denominators stay undefined. */
+export function fertilizerComparison(series: FertilizerSeries[]) {
+  const allocation = series.find((s) => /rdkk/i.test(s.nama) && !/realisasi/i.test(s.nama));
+  const realizations = series.filter((s) => /realisasi/i.test(s.nama));
+  const regions = new Map<string, { name: string; totals: Record<string, number> }>();
+  for (const s of series) for (const group of s.groups) {
+    const key = norm(group.name);
+    const region = regions.get(key) ?? { name: group.name, totals: {} };
+    region.totals[s.id] = (region.totals[s.id] ?? 0) + group.total;
+    regions.set(key, region);
+  }
+  const totals = Object.fromEntries(series.map((s) => [s.id, s.groups.reduce((sum, g) => sum + g.total, 0)]));
+  const percentages = (values: Record<string, number>) => allocation ? realizations.map((s) => ({ id: s.id, nama: s.nama, percent: absorptionPercent(values[s.id] ?? 0, values[allocation.id] ?? 0) })) : [];
+  const bars = [...regions.values()].map((r) => ({ ...r, percentages: percentages(r.totals) })).sort((a, b) => Math.max(0, ...Object.values(b.totals)) - Math.max(0, ...Object.values(a.totals)));
+  return { totals, percentages: percentages(totals), bars, max: Math.max(1, ...bars.flatMap((r) => Object.values(r.totals))) };
+}
 
 const fieldKey = (k: string) => k.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z]/g, "");
 const norm = (v: string) => v.trim().replace(/\s+/g, " ").toLocaleLowerCase("id");

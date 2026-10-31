@@ -9,7 +9,7 @@ import {
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
 import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, regionBars, type RegionFilter } from "@/lib/region-filter";
-import { FERTILIZERS, fertilizerGroups, isFertilizerLayer } from "@/lib/fertilizer";
+import { FERTILIZERS, fertilizerGroups, isFertilizerLayer, primaryFertilizerPies } from "@/lib/fertilizer";
 import { SummaryDrawer } from "@/components/SummaryDrawer";
 import { RegionControls } from "@/components/RegionControls";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,7 @@ function Index() {
     if (a?.status !== "ready" || !isFertilizerLayer(r.kategori, r.nama)) return [];
     return [{ id: r.id, nama: r.nama, hidden: !!a.hidden, groups: fertilizerGroups(a.data, effectiveRegion) }];
   }), [orderedRows, active, effectiveRegion]);
-  const mapPies = useMemo(() => pies.filter((p) => !p.hidden), [pies]);
+  const mapPies = useMemo(() => primaryFertilizerPies(pies, mapLayers), [pies, mapLayers]);
   const recaps = useMemo(() => orderedRows.flatMap((r) => {
     const a = active[r.id];
     const v = regionalViews[r.id];
@@ -330,7 +330,7 @@ function Index() {
       <main className="relative min-w-0 flex-1">
         <ClientOnly fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
           <Suspense fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} />
+            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} filter={effectiveRegion} onDistrictPick={(kecamatan) => setRegion({ kecamatan, desa: "" })} />
           </Suspense>
         </ClientOnly>
 
@@ -352,6 +352,7 @@ function Index() {
         {mapPies.length > 0 && (
           <div aria-label="Legenda pupuk" className="absolute bottom-8 left-3 rounded-lg border border-border bg-card/95 px-3 py-2 text-[11px] shadow-md">
             <div className="mb-1 font-semibold">Jenis Pupuk · per {effectiveRegion.kecamatan ? "desa" : "kecamatan"}</div>
+            <p className="mb-1 max-w-48 truncate text-muted-foreground" title={mapPies[0]?.nama}>{mapPies[0]?.nama}</p>
             {FERTILIZERS.map((f) => <div key={f.key} className="flex items-center gap-1.5 py-px"><span className="h-2.5 w-2.5 rounded-full" style={{ background: f.color }} />{f.label}</div>)}
           </div>
         )}
