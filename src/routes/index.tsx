@@ -361,8 +361,10 @@ function Index() {
                     );
                   })}
                 </ul>
+                </SortableContext>
               )}
-            </section>
+              </>}
+            </SortableCategory>
             );
           })}
           </SortableContext>
