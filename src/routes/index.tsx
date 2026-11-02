@@ -1,7 +1,7 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
   Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3,
@@ -10,12 +10,20 @@ import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFro
 import { resolveLayerColor } from "@/lib/layer-colors";
 import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, regionBars, type RegionFilter } from "@/lib/region-filter";
 import { FERTILIZERS, fertilizerGroups, isFertilizerLayer, primaryFertilizerPies } from "@/lib/fertilizer";
+import { tierColors, tierFields, type TierSetting } from "@/lib/tiers";
 import { SummaryDrawer } from "@/components/SummaryDrawer";
 import { RegionControls } from "@/components/RegionControls";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import type { MapLayer } from "@/components/GisMap";
-import { SortableLayer } from "@/components/SortableLayer";
-import { dragLayerOrder, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
+import { SortableLayer, SortableCategory } from "@/components/SortableLayer";
+import { dragCategoryOrder, dragLayerOrder, groupByCategory, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
+
+// Category handles only collide with categories, layer handles only with layers.
+const sameKindCollision: CollisionDetection = (args) => {
+  const isKat = String(args.active.id).startsWith("kat:");
+  return closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => String(c.id).startsWith("kat:") === isKat) });
+};
 import logo from "@/assets/logo-magelang.png";
 
 const GisMap = lazy(() => import("@/components/GisMap"));
@@ -58,6 +66,7 @@ function Index() {
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Record<string, Active>>({});
   const [manualColors, setManualColors] = useState<Record<string, string>>({});
+  const [tiers, setTiers] = useState<Record<string, TierSetting>>({});
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -88,7 +97,11 @@ function Index() {
   });
 
   const rows = sheet.data ?? [];
-  const order = useMemo(() => reconcileLayerOrder(rows.map((r) => r.id), layerOrder), [rows, layerOrder]);
+  const katOf = useMemo(() => {
+    const m = new Map(rows.map((r) => [r.id, r.kategori || "Lainnya"]));
+    return (id: string) => m.get(id) ?? "Lainnya";
+  }, [rows]);
+  const order = useMemo(() => groupByCategory(reconcileLayerOrder(rows.map((r) => r.id), layerOrder), katOf), [rows, layerOrder, katOf]);
   const orderedRows = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
     return order.flatMap((id) => {
@@ -98,7 +111,15 @@ function Index() {
   }, [rows, order]);
   const onDragEnd = ({ active: dragged, over }: DragEndEvent) => {
     if (!over) return;
-    const next = dragLayerOrder(order, String(dragged.id), String(over.id));
+    const from = String(dragged.id), to = String(over.id);
+    let next: string[];
+    if (from.startsWith("kat:")) {
+      if (!to.startsWith("kat:")) return;
+      next = dragCategoryOrder(order, katOf, from.slice(4), to.slice(4));
+    } else {
+      if (to.startsWith("kat:") || katOf(from).toLowerCase() !== katOf(to).toLowerCase()) return;
+      next = dragLayerOrder(order, from, to);
+    }
     if (next === order) return;
     setLayerOrder(next);
     setManualOrder(true);
@@ -108,9 +129,10 @@ function Index() {
     const g: [string, MapRow[]][] = [];
     for (const r of orderedRows) {
       if (s && !`${r.nama} ${r.kategori} ${r.keterangan}`.toLowerCase().includes(s)) continue;
-      const last = g.at(-1);
-      if (last?.[0] === r.kategori) last[1].push(r);
-      else g.push([r.kategori, [r]]);
+      const kat = r.kategori || "Lainnya";
+      const hit = g.find(([k]) => k.toLowerCase() === kat.toLowerCase());
+      if (hit) hit[1].push(r);
+      else g.push([kat, [r]]);
     }
     return g;
   }, [orderedRows, q]);
@@ -119,6 +141,18 @@ function Index() {
     setActive((a) => (a[id] ? { ...a, [id]: { ...a[id], ...v } as Active } : a));
 
   const colorFor = (r: MapRow) => resolveLayerColor(r.nama, rows.filter((row) => !isBoundaryLayer(row.nama)).findIndex((row) => row.id === r.id), manualColors[r.id]);
+  const tierInfoFor = (id: string, data: any) => {
+    const options = tierFields(data);
+    const want = tiers[id]?.field;
+    return options.find((o) => o.field === want) ?? options[0];
+  };
+  const activeTierColors = (id: string, data: any) => {
+    const info = tierInfoFor(id, data);
+    if (!info || tiers[id]?.enabled === false) return null;
+    return tierColors(info, tiers[id]?.colors);
+  };
+  const setTier = (id: string, v: Partial<TierSetting>) =>
+    setTiers((all) => ({ ...all, [id]: { enabled: true, colors: {}, ...all[id], ...v } }));
 
   const toggle = async (r: MapRow) => {
     if (active[r.id]) {
@@ -151,13 +185,15 @@ function Index() {
   }, [region, effectiveRegion]);
   const regionalViews = useMemo(() => Object.fromEntries(orderedRows.flatMap((r) => {
     const a = active[r.id];
-    return a?.status === "ready" ? [[r.id, regionalView(a.data, effectiveRegion)]] : [];
-  })), [orderedRows, active, effectiveRegion]);
+    return a?.status === "ready" ? [[r.id, regionalView(a.data, effectiveRegion, tierInfoFor(r.id, a.data)?.field)]] : [];
+  })), [orderedRows, active, effectiveRegion, tiers]);
   const mapLayers: MapLayer[] = useMemo(() => mapStackOrder(orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready") return [];
-    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama) }];
-  }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews]);
+    const tc = activeTierColors(r.id, a.data);
+    const tier = tc ? { field: tierInfoFor(r.id, a.data)!.field, colors: tc } : undefined;
+    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama), tier }];
+  }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews, tiers]);
   const pies = useMemo(() => orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready" || !isFertilizerLayer(r.kategori, r.nama)) return [];
