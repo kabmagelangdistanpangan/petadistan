@@ -17,3 +17,4 @@
 - Resolve cartographic colors through src/lib/layer-colors.ts and keep session manual overrides separate from activation state; apply current paint to existing MapLibre layers so legend and geometry update without downloading again.
 - Derive hierarchical region options, filtered geometry and adaptive summaries from a cached browser attribute index in src/lib/region-filter.ts; update existing map sources and fit filtered bounds without refetching or mutating downloaded data.
 - Keep fertilizer primary-layer selection, marker sizing, and regional comparison calculations in the shared fertilizer module so map ordering and chart ratios remain consistent and testable; identify Realisasi by its layer name, never by activation order.
+- Detect classified attributes and per-tier colors in src/lib/tiers.ts; the map applies them as MapLibre match expressions on existing layers, so toggling tiers never redownloads data.

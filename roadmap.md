@@ -11,3 +11,5 @@
 - [x] Synchronize map stacking, retaining administrative boundaries underneath.
 - [x] Test ordering rules and verify manual moves in the running application.- [x] Pupuk layers: per-kecamatan/desa pie charts on map, click popup, slice legend.
 - [x] Floating chart button + right drawer with clickable kecamatan/desa bars and active-layer recap.
+- [x] Merge equal categories into one sidebar block and drag whole categories.
+- [x] Auto-detect tiered layers (Ketinggian, Kondisi Baik/Rusak, etc.) with on/off switch, per-tier colors, legend and per-tier recap.
