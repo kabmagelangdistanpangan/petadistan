@@ -1,7 +1,7 @@
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
   Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3,
@@ -10,12 +10,20 @@ import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFro
 import { resolveLayerColor } from "@/lib/layer-colors";
 import { regionalView, regionOptions, mergeRegionBounds, formatSummaryNumber, regionBars, type RegionFilter } from "@/lib/region-filter";
 import { FERTILIZERS, fertilizerGroups, isFertilizerLayer, primaryFertilizerPies } from "@/lib/fertilizer";
+import { tierColors, tierFields, type TierSetting } from "@/lib/tiers";
 import { SummaryDrawer } from "@/components/SummaryDrawer";
 import { RegionControls } from "@/components/RegionControls";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import type { MapLayer } from "@/components/GisMap";
-import { SortableLayer } from "@/components/SortableLayer";
-import { dragLayerOrder, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
+import { SortableLayer, SortableCategory } from "@/components/SortableLayer";
+import { dragCategoryOrder, dragLayerOrder, groupByCategory, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
+
+// Category handles only collide with categories, layer handles only with layers.
+const sameKindCollision: CollisionDetection = (args) => {
+  const isKat = String(args.active.id).startsWith("kat:");
+  return closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => String(c.id).startsWith("kat:") === isKat) });
+};
 import logo from "@/assets/logo-magelang.png";
 
 const GisMap = lazy(() => import("@/components/GisMap"));
@@ -58,6 +66,7 @@ function Index() {
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Record<string, Active>>({});
   const [manualColors, setManualColors] = useState<Record<string, string>>({});
+  const [tiers, setTiers] = useState<Record<string, TierSetting>>({});
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -88,7 +97,11 @@ function Index() {
   });
 
   const rows = sheet.data ?? [];
-  const order = useMemo(() => reconcileLayerOrder(rows.map((r) => r.id), layerOrder), [rows, layerOrder]);
+  const katOf = useMemo(() => {
+    const m = new Map(rows.map((r) => [r.id, r.kategori || "Lainnya"]));
+    return (id: string) => m.get(id) ?? "Lainnya";
+  }, [rows]);
+  const order = useMemo(() => groupByCategory(reconcileLayerOrder(rows.map((r) => r.id), layerOrder), katOf), [rows, layerOrder, katOf]);
   const orderedRows = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
     return order.flatMap((id) => {
@@ -98,7 +111,15 @@ function Index() {
   }, [rows, order]);
   const onDragEnd = ({ active: dragged, over }: DragEndEvent) => {
     if (!over) return;
-    const next = dragLayerOrder(order, String(dragged.id), String(over.id));
+    const from = String(dragged.id), to = String(over.id);
+    let next: string[];
+    if (from.startsWith("kat:")) {
+      if (!to.startsWith("kat:")) return;
+      next = dragCategoryOrder(order, katOf, from.slice(4), to.slice(4));
+    } else {
+      if (to.startsWith("kat:") || katOf(from).toLowerCase() !== katOf(to).toLowerCase()) return;
+      next = dragLayerOrder(order, from, to);
+    }
     if (next === order) return;
     setLayerOrder(next);
     setManualOrder(true);
@@ -108,9 +129,10 @@ function Index() {
     const g: [string, MapRow[]][] = [];
     for (const r of orderedRows) {
       if (s && !`${r.nama} ${r.kategori} ${r.keterangan}`.toLowerCase().includes(s)) continue;
-      const last = g.at(-1);
-      if (last?.[0] === r.kategori) last[1].push(r);
-      else g.push([r.kategori, [r]]);
+      const kat = r.kategori || "Lainnya";
+      const hit = g.find(([k]) => k.toLowerCase() === kat.toLowerCase());
+      if (hit) hit[1].push(r);
+      else g.push([kat, [r]]);
     }
     return g;
   }, [orderedRows, q]);
@@ -119,6 +141,18 @@ function Index() {
     setActive((a) => (a[id] ? { ...a, [id]: { ...a[id], ...v } as Active } : a));
 
   const colorFor = (r: MapRow) => resolveLayerColor(r.nama, rows.filter((row) => !isBoundaryLayer(row.nama)).findIndex((row) => row.id === r.id), manualColors[r.id]);
+  const tierInfoFor = (id: string, data: any) => {
+    const options = tierFields(data);
+    const want = tiers[id]?.field;
+    return options.find((o) => o.field === want) ?? options[0];
+  };
+  const activeTierColors = (id: string, data: any) => {
+    const info = tierInfoFor(id, data);
+    if (!info || tiers[id]?.enabled === false) return null;
+    return tierColors(info, tiers[id]?.colors);
+  };
+  const setTier = (id: string, v: Partial<TierSetting>) =>
+    setTiers((all) => ({ ...all, [id]: { enabled: true, colors: {}, ...all[id], ...v } }));
 
   const toggle = async (r: MapRow) => {
     if (active[r.id]) {
@@ -151,13 +185,15 @@ function Index() {
   }, [region, effectiveRegion]);
   const regionalViews = useMemo(() => Object.fromEntries(orderedRows.flatMap((r) => {
     const a = active[r.id];
-    return a?.status === "ready" ? [[r.id, regionalView(a.data, effectiveRegion)]] : [];
-  })), [orderedRows, active, effectiveRegion]);
+    return a?.status === "ready" ? [[r.id, regionalView(a.data, effectiveRegion, tierInfoFor(r.id, a.data)?.field)]] : [];
+  })), [orderedRows, active, effectiveRegion, tiers]);
   const mapLayers: MapLayer[] = useMemo(() => mapStackOrder(orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready") return [];
-    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama) }];
-  }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews]);
+    const tc = activeTierColors(r.id, a.data);
+    const tier = tc ? { field: tierInfoFor(r.id, a.data)!.field, colors: tc } : undefined;
+    return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama), tier }];
+  }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews, tiers]);
   const pies = useMemo(() => orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready" || !isFertilizerLayer(r.kategori, r.nama)) return [];
@@ -179,7 +215,7 @@ function Index() {
 
   const saveSettings = () => {
     localStorage.setItem("gis-sheet-url", draft);
-    setSheetUrl(draft); setActive({}); setManualColors({}); setLayerOrder([]); setManualOrder(false); setRegion({ kecamatan: "", desa: "" }); setShowSettings(false);
+    setSheetUrl(draft); setActive({}); setManualColors({}); setTiers({}); setLayerOrder([]); setManualOrder(false); setRegion({ kecamatan: "", desa: "" }); setShowSettings(false);
   };
 
   return (
@@ -234,18 +270,23 @@ function Index() {
           {sheet.isLoading && <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Membaca Google Sheets…</div>}
           {sheet.error && <div className="m-2 flex gap-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{(sheet.error as Error).message}</div>}
           {!sheet.isLoading && !sheet.error && groups.length === 0 && <p className="p-4 text-sm text-muted-foreground">Tidak ada peta ditemukan.</p>}
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={groups.flatMap(([kat, items]) => (collapsed[kat] ?? rows.length > 10) ? [] : items.map((r) => r.id))} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={sameKindCollision} onDragEnd={onDragEnd}>
+          <SortableContext items={groups.map(([kat]) => `kat:${kat}`)} strategy={verticalListSortingStrategy}>
           {groups.map(([kat, items]) => {
             const isCollapsed = collapsed[kat] ?? rows.length > 10;
             return (
-            <section key={`${kat}-${items[0]?.id}`} className="mb-1.5">
-              <button onClick={() => setCollapsed((c) => ({ ...c, [kat]: !isCollapsed }))}
-                className="flex w-full items-center justify-between px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <span>{kat} <span className="font-normal">({items.length})</span></span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
-              </button>
+            <SortableCategory key={`kat:${kat}`} id={`kat:${kat}`} name={kat}>
+              {(catHandle) => <>
+              <div className="flex items-center gap-1 px-1">
+                {!q && catHandle}
+                <button onClick={() => setCollapsed((c) => ({ ...c, [kat]: !isCollapsed }))}
+                  className="flex min-w-0 flex-1 items-center justify-between px-1 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span>{kat} <span className="font-normal">({items.length})</span></span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                </button>
+              </div>
               {!isCollapsed && (
+                <SortableContext items={items.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                 <ul className="space-y-0.5">
                   {items.map((r) => {
                     const a = active[r.id];
@@ -260,7 +301,14 @@ function Index() {
                             onClick={() => (a?.status === "ready" ? patch(r.id, { open: !a.open }) : toggle(r))}>
                             <div className="truncate text-[13px] font-medium leading-snug" title={r.nama}>{r.nama}</div>
                             {r.keterangan && <div className="truncate text-[11px] text-muted-foreground" title={r.keterangan}>{r.keterangan}</div>}
-                            {a?.status === "ready" && <span aria-label={`Legenda ${r.nama}`} className="mt-0.5 block h-1 w-6 rounded-sm" style={{ backgroundColor: colorFor(r) }} />}
+                            {a?.status === "ready" && (() => {
+                              const tc = activeTierColors(r.id, a.data);
+                              return tc ? (
+                                <span aria-label={`Legenda ${r.nama}`} className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                                  {tc.map((c) => <span key={c.value} className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: c.color }} />{c.value}</span>)}
+                                </span>
+                              ) : <span aria-label={`Legenda ${r.nama}`} className="mt-0.5 block h-1 w-6 rounded-sm" style={{ backgroundColor: colorFor(r) }} />;
+                            })()}
                           </button>
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
@@ -296,6 +344,38 @@ function Index() {
                               {fields.map((f) => <option key={f} value={f}>{f}</option>)}
                             </select>
                           </div>
+                          {(() => {
+                            const info = tierInfoFor(r.id, a.data);
+                            if (!info) return null;
+                            const t = tiers[r.id];
+                            const on = t?.enabled ?? true;
+                            const options = tierFields(a.data);
+                            return (
+                              <div aria-label={`Pewarnaan bertingkat ${r.nama}`} className="space-y-1 rounded-md border border-border bg-background/60 p-1.5 text-[11px]">
+                                <div className="flex items-center gap-1.5">
+                                  <Switch checked={on} onCheckedChange={(v) => setTier(r.id, { enabled: v })} aria-label={`Warna bertingkat ${r.nama}`} className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-3" />
+                                  <span className="shrink-0 font-medium">Warna bertingkat</span>
+                                  {options.length > 1 ? (
+                                    <select value={info.field} onChange={(e) => setTier(r.id, { field: e.target.value, colors: {} })} aria-label={`Kolom tingkatan ${r.nama}`}
+                                      className="min-w-0 flex-1 rounded-md border border-input bg-background px-1.5 py-0.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-ring">
+                                      {options.map((o) => <option key={o.field} value={o.field}>{o.field}</option>)}
+                                    </select>
+                                  ) : <span className="min-w-0 truncate text-muted-foreground">({info.field})</span>}
+                                </div>
+                                {on && tierColors(info, t?.colors).map((c) => (
+                                  <label key={c.value} className="flex items-center gap-1.5">
+                                    <input type="color" value={c.color} aria-label={`Warna ${c.value}`} title={`Pilih warna ${c.value}`}
+                                      onChange={(e) => setTier(r.id, { colors: { ...(tiers[r.id]?.colors ?? {}), [c.value]: e.target.value } })}
+                                      className="layer-color-picker h-5 w-6 cursor-pointer rounded border border-input bg-background p-0.5" />
+                                    <span className="min-w-0 truncate">{c.value}</span>
+                                  </label>
+                                ))}
+                                {on && t && Object.keys(t.colors).length > 0 && (
+                                  <button onClick={() => setTier(r.id, { colors: {} })} className="flex items-center gap-1 text-muted-foreground hover:text-primary"><RotateCcw className="h-3 w-3" />Warna tingkatan default</button>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div aria-label={`Rekap ${r.nama}`} className="border-t border-border pt-1.5 text-[11px]">
                             <div className="mb-1 flex items-start justify-between gap-2 text-muted-foreground"><span className="min-w-0 break-words font-medium">{regionScope}</span><span className="shrink-0 tabular-nums">{formatSummaryNumber(regionalViews[r.id]?.count ?? 0)} objek</span></div>
                             {regionalViews[r.id]?.summary.map((item) => <div key={`${item.label}-${item.unit}`} className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 py-0.5"><span className="min-w-0 break-words text-muted-foreground">{item.label}:</span><span className="font-medium tabular-nums">{formatSummaryNumber(item.value)} {item.unit}</span></div>)}
@@ -317,8 +397,10 @@ function Index() {
                     );
                   })}
                 </ul>
+                </SortableContext>
               )}
-            </section>
+              </>}
+            </SortableCategory>
             );
           })}
           </SortableContext>

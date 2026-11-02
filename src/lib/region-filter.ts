@@ -56,26 +56,37 @@ function matches(entry: Entry, filter: RegionFilter) {
   return (!filter.kecamatan || normalize(entry.kecamatan) === normalize(filter.kecamatan)) && (!filter.desa || normalize(entry.desa) === normalize(filter.desa));
 }
 
-export function regionalView(geo: any, filter: RegionFilter) {
+export function regionalView(geo: any, filter: RegionFilter, tierField?: string) {
   const index = regionIndex(geo);
   const entries = filter.kecamatan || filter.desa ? index.entries.filter((entry) => matches(entry, filter)) : index.entries;
   const data = entries === index.entries ? geo : { type: "FeatureCollection", features: entries.map((entry) => entry.feature) };
   const summary: SummaryItem[] = [];
+  const tierOf = (entry: Entry) => tierField
+    ? String(entry.feature?.properties?.[tierField] ?? "").trim().replace(/\s+/g, " ") || "Tanpa kelas"
+    : entry.kondisi;
+  const byTier = (unit: SummaryItem["unit"], pick: (e: Entry) => number) => {
+    const totals = new Map<string, { label: string; value: number }>();
+    for (const entry of entries) {
+      const label = tierOf(entry);
+      const total = totals.get(normalize(label)) ?? { label, value: 0 };
+      total.value += pick(entry);
+      totals.set(normalize(label), total);
+    }
+    for (const total of totals.values()) summary.push({ ...total, unit });
+  };
+  const tiered = !!tierField || index.hasKondisi;
   if (index.hasPanjang) {
-    if (index.hasKondisi) {
-      const totals = new Map<string, { label: string; value: number }>();
-      for (const entry of entries) {
-        const key = normalize(entry.kondisi);
-        const total = totals.get(key) ?? { label: entry.kondisi, value: 0 };
-        total.value += entry.panjang ?? 0;
-        totals.set(key, total);
-      }
-      for (const total of totals.values()) summary.push({ ...total, unit: "Meter" });
-      if (!summary.length) summary.push({ label: "Total Panjang", value: 0, unit: "Meter" });
-    } else summary.push({ label: "Total Panjang", value: entries.reduce((sum, entry) => sum + (entry.panjang ?? 0), 0), unit: "Meter" });
+    if (tiered) byTier("Meter", (e) => e.panjang ?? 0);
+    if (!tiered || !entries.length) summary.push({ label: "Total Panjang", value: entries.reduce((sum, entry) => sum + (entry.panjang ?? 0), 0), unit: "Meter" });
   }
-  if (index.hasLuas) summary.push({ label: "Total Luas", value: entries.reduce((sum, entry) => sum + (entry.luas ?? 0), 0), unit: "Hektare" });
-  if (!index.hasPanjang && !index.hasLuas) summary.push({ label: "Total", value: entries.length, unit: "Objek/Blok" });
+  if (index.hasLuas) {
+    if (tiered && !index.hasPanjang) byTier("Hektare", (e) => e.luas ?? 0);
+    summary.push({ label: "Total Luas", value: entries.reduce((sum, entry) => sum + (entry.luas ?? 0), 0), unit: "Hektare" });
+  }
+  if (!index.hasPanjang && !index.hasLuas) {
+    if (tiered) byTier("Objek/Blok", () => 1);
+    summary.push({ label: "Total", value: entries.length, unit: "Objek/Blok" });
+  }
   return { data, summary, count: entries.length, hasRegion: index.hasRegion, bounds: bbox(data) };
 }
 
