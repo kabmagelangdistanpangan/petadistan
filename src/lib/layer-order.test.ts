@@ -56,3 +56,14 @@ describe("layer ordering", () => {
     expect(moveLayer).toHaveBeenCalledTimes(8);
   });
 });
+import { groupByCategory, dragCategoryOrder } from "./layer-order";
+describe("category blocks", () => {
+  const kat: Record<string, string> = { a: "Administrasi", b: "LP2B", c: "administrasi", d: "Pupuk" };
+  const of = (id: string) => kat[id]!;
+  it("merges the same category into one block", () => {
+    expect(groupByCategory(["a", "b", "c", "d"], of)).toEqual(["a", "c", "b", "d"]);
+  });
+  it("moves a whole category block", () => {
+    expect(dragCategoryOrder(["a", "c", "b", "d"], of, "Administrasi", "Pupuk")).toEqual(["b", "d", "a", "c"]);
+  });
+});

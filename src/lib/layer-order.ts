@@ -43,3 +43,27 @@ export function syncMapStack(
     }
   }
 }
+/** Keep each category contiguous at its first appearance, so equal categories form one sidebar block. */
+export function groupByCategory(order: string[], categoryOf: (id: string) => string): string[] {
+  const blocks = new Map<string, string[]>();
+  for (const id of order) {
+    const kat = categoryOf(id).trim().toLocaleLowerCase("id");
+    const block = blocks.get(kat) ?? [];
+    block.push(id);
+    blocks.set(kat, block);
+  }
+  return [...blocks.values()].flat();
+}
+
+/** Move a whole category block to the position of another category block. */
+export function dragCategoryOrder(order: string[], categoryOf: (id: string) => string, from: string, to: string): string[] {
+  const norm = (k: string) => k.trim().toLocaleLowerCase("id");
+  const cats: string[] = [];
+  for (const id of order) { const k = norm(categoryOf(id)); if (!cats.includes(k)) cats.push(k); }
+  const a = cats.indexOf(norm(from));
+  const b = cats.indexOf(norm(to));
+  if (a < 0 || b < 0 || a === b) return order;
+  cats.splice(a, 1);
+  cats.splice(b, 0, norm(from));
+  return cats.flatMap((k) => order.filter((id) => norm(categoryOf(id)) === k));
+}
