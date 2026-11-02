@@ -8,11 +8,12 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { bbox } from "@/lib/gis";
 import { syncMapStack } from "@/lib/layer-order";
 import { layerPaintColors } from "@/lib/layer-colors";
+import { tierExpression } from "@/lib/tiers";
 import { FERTILIZERS, formatKg, pieGradient, pieDiameter, pieClickDistrict, type PieGroup } from "@/lib/fertilizer";
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean; pie?: boolean };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean; pie?: boolean; tier?: { field: string; colors: { value: string; color: string }[] } };
 export type MapPies = { id: string; nama: string; groups: PieGroup[] }[];
 
 const esc = (s: unknown) =>
@@ -132,6 +133,12 @@ export default function GisMap({
       map.setPaintProperty(`lyr-${l.id}-fill`, "fill-opacity", paint.fillOpacity);
       map.setPaintProperty(`lyr-${l.id}-line`, "line-color", paint.stroke);
       map.setPaintProperty(`lyr-${l.id}-pt`, "circle-color", paint.fill);
+      if (l.tier && !l.pie) {
+        const expr = tierExpression(l.tier.field, l.tier.colors, paint.fill);
+        map.setPaintProperty(`lyr-${l.id}-fill`, "fill-color", expr);
+        map.setPaintProperty(`lyr-${l.id}-line`, "line-color", l.boundary ? paint.stroke : tierExpression(l.tier.field, l.tier.colors, paint.stroke));
+        map.setPaintProperty(`lyr-${l.id}-pt`, "circle-color", expr);
+      }
       if (l.boundary) map.setPaintProperty(`lyr-${l.id}-pt`, "circle-stroke-color", paint.stroke);
       if (l.pie) {
         map.setPaintProperty(`lyr-${l.id}-fill`, "fill-opacity", 0.05);

@@ -215,7 +215,7 @@ function Index() {
 
   const saveSettings = () => {
     localStorage.setItem("gis-sheet-url", draft);
-    setSheetUrl(draft); setActive({}); setManualColors({}); setLayerOrder([]); setManualOrder(false); setRegion({ kecamatan: "", desa: "" }); setShowSettings(false);
+    setSheetUrl(draft); setActive({}); setManualColors({}); setTiers({}); setLayerOrder([]); setManualOrder(false); setRegion({ kecamatan: "", desa: "" }); setShowSettings(false);
   };
 
   return (
