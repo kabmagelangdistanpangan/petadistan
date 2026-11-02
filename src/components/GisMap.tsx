@@ -13,7 +13,7 @@ import { FERTILIZERS, formatKg, pieGradient, pieDiameter, pieClickDistrict, type
 
 maplibregl.setWorkerUrl(workerUrl);
 
-export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean; pie?: boolean; tier?: { field: string; colors: { value: string; color: string }[] } };
+export type MapLayer = { id: string; data: any; color: string; nama: string; keterangan: string; visible?: boolean; label?: string | undefined; boundary?: boolean; manualColor?: boolean; pie?: boolean; tier?: { field: string; colors: { value: string; color: string }[] } | undefined };
 export type MapPies = { id: string; nama: string; groups: PieGroup[] }[];
 
 const esc = (s: unknown) =>
