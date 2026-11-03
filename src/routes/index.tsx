@@ -60,9 +60,7 @@ function propKeys(geo: any): string[] {
 }
 
 function Index() {
-  const [sheetUrl, setSheetUrl] = useState(DEFAULT_SHEET);
-  const [draft, setDraft] = useState(DEFAULT_SHEET);
-  const [showSettings, setShowSettings] = useState(false);
+  const sheetUrl = DEFAULT_SHEET;
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Record<string, Active>>({});
   const [manualColors, setManualColors] = useState<Record<string, string>>({});
@@ -79,10 +77,6 @@ function Index() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  useEffect(() => {
-    const s = localStorage.getItem("gis-sheet-url");
-    if (s) { setSheetUrl(s); setDraft(s); }
-  }, []);
 
   const sheet = useQuery({
     queryKey: ["sheet", sheetUrl],
@@ -213,10 +207,6 @@ function Index() {
   const regionScope = effectiveRegion.desa || effectiveRegion.kecamatan || "Se-Kabupaten";
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
-  const saveSettings = () => {
-    localStorage.setItem("gis-sheet-url", draft);
-    setSheetUrl(draft); setActive({}); setManualColors({}); setTiers({}); setLayerOrder([]); setManualOrder(false); setRegion({ kecamatan: "", desa: "" }); setShowSettings(false);
-  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
@@ -234,24 +224,9 @@ function Index() {
               <button aria-label="Muat ulang data" onClick={() => sheet.refetch()} className="rounded-md p-2 hover:bg-primary-foreground/15">
                 <RefreshCw className={`h-4 w-4 ${sheet.isFetching ? "animate-spin" : ""}`} />
               </button>
-              <button aria-label="Pengaturan" onClick={() => setShowSettings((s) => !s)} className="rounded-md p-2 hover:bg-primary-foreground/15">
-                <Settings className="h-4 w-4" />
-              </button>
             </div>
           </div>
         </header>
-
-        {showSettings && (
-          <div className="space-y-2 border-b border-border bg-card p-4">
-            <label className="text-xs font-medium text-muted-foreground">URL Google Sheets (share link)</label>
-            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3}
-              className="w-full resize-none rounded-md border border-input bg-background p-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
-            <div className="flex gap-2">
-              <button onClick={saveSettings} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Simpan & Muat</button>
-              <button onClick={() => setDraft(DEFAULT_SHEET)} className="rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent">Default</button>
-            </div>
-          </div>
-        )}
 
         <div className="border-b border-border p-3">
           <div className="relative">
