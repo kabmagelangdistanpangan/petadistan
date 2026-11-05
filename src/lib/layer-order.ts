@@ -3,7 +3,8 @@ export function reconcileLayerOrder(ids: string[], previous: string[]): string[]
   const valid = new Set(ids);
   const kept = previous.filter((id) => valid.has(id));
   const known = new Set(kept);
-  return [...ids.filter((id) => !known.has(id)).reverse(), ...kept];
+  // Sheet order: top sheet row first in sidebar = bottom of map stack.
+  return [...kept, ...ids.filter((id) => !known.has(id))];
 }
 
 export function moveLayerOrder(order: string[], id: string, direction: -1 | 1): string[] {

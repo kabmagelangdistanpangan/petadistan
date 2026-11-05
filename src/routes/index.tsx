@@ -187,7 +187,7 @@ function Index() {
     const tc = activeTierColors(r.id, a.data);
     const tier = tc ? { field: tierInfoFor(r.id, a.data)!.field, colors: tc } : undefined;
     return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama), tier }];
-  }), manualOrder), [orderedRows, active, manualColors, manualOrder, regionalViews, tiers]);
+  }), true), [orderedRows, active, manualColors, manualOrder, regionalViews, tiers]);
   const pies = useMemo(() => orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready" || !isFertilizerLayer(r.kategori, r.nama)) return [];
