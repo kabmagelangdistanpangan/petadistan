@@ -72,6 +72,6 @@ import { sheetSidebarOrder as sso } from "./layer-order";
 describe("sheetSidebarOrder", () => {
   it("puts the category of sheet row 1 at the bottom with its members", () => {
     const kat: Record<string, string> = { a: "Administrasi", b: "LP2B", c: "Pupuk", d: "Administrasi" };
-    expect(sso(["a", "b", "c", "d"], (id) => kat[id])).toEqual(["c", "b", "d", "a"]);
+    expect(sso(["a", "b", "c", "d"], (id) => kat[id] ?? "")).toEqual(["c", "b", "d", "a"]);
   });
 });
