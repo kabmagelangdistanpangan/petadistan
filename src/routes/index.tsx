@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { MapLayer } from "@/components/GisMap";
 import { SortableLayer, SortableCategory } from "@/components/SortableLayer";
-import { dragCategoryOrder, dragLayerOrder, groupByCategory, mapStackOrder, reconcileLayerOrder } from "@/lib/layer-order";
+import { dragCategoryOrder, dragLayerOrder, groupByCategory, mapStackOrder, reconcileLayerOrder, sheetSidebarOrder } from "@/lib/layer-order";
 
 // Category handles only collide with categories, layer handles only with layers.
 const sameKindCollision: CollisionDetection = (args) => {
@@ -95,7 +95,7 @@ function Index() {
     const m = new Map(rows.map((r) => [r.id, r.kategori || "Lainnya"]));
     return (id: string) => m.get(id) ?? "Lainnya";
   }, [rows]);
-  const order = useMemo(() => groupByCategory(reconcileLayerOrder(rows.map((r) => r.id).reverse(), layerOrder), katOf), [rows, layerOrder, katOf]);
+  const order = useMemo(() => groupByCategory(reconcileLayerOrder(sheetSidebarOrder(rows.map((r) => r.id), katOf), layerOrder), katOf), [rows, layerOrder, katOf]);
   const orderedRows = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
     return order.flatMap((id) => {

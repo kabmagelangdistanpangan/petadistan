@@ -44,6 +44,14 @@ export function syncMapStack(
     }
   }
 }
+/** Default sidebar: the category holding sheet row 1 sits at the bottom; within each category the earlier sheet row sits lower. */
+export function sheetSidebarOrder(ids: string[], categoryOf: (id: string) => string): string[] {
+  const norm = (k: string) => k.trim().toLocaleLowerCase("id");
+  const cats: string[] = [];
+  for (const id of ids) { const k = norm(categoryOf(id)); if (!cats.includes(k)) cats.push(k); }
+  return cats.reverse().flatMap((k) => ids.filter((id) => norm(categoryOf(id)) === k).reverse());
+}
+
 /** Keep each category contiguous at its first appearance, so equal categories form one sidebar block. */
 export function groupByCategory(order: string[], categoryOf: (id: string) => string): string[] {
   const blocks = new Map<string, string[]>();
