@@ -20,12 +20,12 @@ describe("layer ordering", () => {
   });
   const rows = [{ id: "old" }, { id: "middle" }, { id: "new" }];
 
-  it("starts with the bottommost Sheets row first in the sidebar", () => {
-    expect(reconcileLayerOrder(rows.map((row) => row.id), [])).toEqual(["new", "middle", "old"]);
+  it("follows Sheets row order in the sidebar", () => {
+    expect(reconcileLayerOrder(rows.map((row) => row.id), [])).toEqual(["old", "middle", "new"]);
   });
 
-  it("starts with the newest row in front on the map", () => {
-    expect(mapStackOrder([...rows].reverse(), false).map((row) => row.id)).toEqual(["old", "middle", "new"]);
+  it("puts the topmost Sheets row at the bottom of the map stack", () => {
+    expect(mapStackOrder(rows, true).map((row) => row.id)).toEqual(["old", "middle", "new"]);
   });
 
   it("moves a row down and immediately makes lower sidebar rows higher in the map stack", () => {
@@ -40,8 +40,8 @@ describe("layer ordering", () => {
     expect(moveLayerOrder(["new", "old"], "old", 1)).toEqual(["new", "old"]);
   });
 
-  it("retains manual positions during refresh and prepends newly added sheet rows", () => {
-    expect(reconcileLayerOrder(["old", "new", "latest"], ["new", "removed", "old"])).toEqual(["latest", "new", "old"]);
+  it("retains manual positions during refresh and appends newly added sheet rows", () => {
+    expect(reconcileLayerOrder(["old", "new", "latest"], ["new", "removed", "old"])).toEqual(["new", "old", "latest"]);
   });
 
   it.each([false, true])("keeps administrative boundaries underneath data in manual=%s", (manual) => {
