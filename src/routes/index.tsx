@@ -95,7 +95,7 @@ function Index() {
     const m = new Map(rows.map((r) => [r.id, r.kategori || "Lainnya"]));
     return (id: string) => m.get(id) ?? "Lainnya";
   }, [rows]);
-  const order = useMemo(() => groupByCategory(reconcileLayerOrder(rows.map((r) => r.id), layerOrder), katOf), [rows, layerOrder, katOf]);
+  const order = useMemo(() => groupByCategory(reconcileLayerOrder(rows.map((r) => r.id).reverse(), layerOrder), katOf), [rows, layerOrder, katOf]);
   const orderedRows = useMemo(() => {
     const byId = new Map(rows.map((r) => [r.id, r]));
     return order.flatMap((id) => {
@@ -187,7 +187,7 @@ function Index() {
     const tc = activeTierColors(r.id, a.data);
     const tier = tc ? { field: tierInfoFor(r.id, a.data)!.field, colors: tc } : undefined;
     return [{ id: r.id, data: regionalViews[r.id]?.data ?? a.data, color: colorFor(r), manualColor: !!manualColors[r.id], nama: r.nama, keterangan: r.keterangan, visible: !a.hidden, label: a.label, boundary: isBoundaryLayer(r.nama), pie: isFertilizerLayer(r.kategori, r.nama), tier }];
-  }), true), [orderedRows, active, manualColors, manualOrder, regionalViews, tiers]);
+  }), false), [orderedRows, active, manualColors, manualOrder, regionalViews, tiers]);
   const pies = useMemo(() => orderedRows.flatMap((r) => {
     const a = active[r.id];
     if (a?.status !== "ready" || !isFertilizerLayer(r.kategori, r.nama)) return [];
