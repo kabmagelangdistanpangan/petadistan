@@ -210,7 +210,9 @@ export default function GisMap({
       if (geolocateButton.getAttribute("aria-label") !== label) geolocateButton.setAttribute("aria-label", label);
     };
     const locationButtonObserver = geolocateButton ? new MutationObserver(localizeGeolocateButton) : null;
-    locationButtonObserver?.observe(geolocateButton, { attributes: true, attributeFilter: ["aria-label", "class", "disabled", "title"] });
+    if (geolocateButton) {
+      locationButtonObserver?.observe(geolocateButton, { attributes: true, attributeFilter: ["aria-label", "class", "disabled", "title"] });
+    }
     localizeGeolocateButton();
     map.addControl(new maplibregl.ScaleControl({}), "bottom-right");
     map.on("load", () => {
