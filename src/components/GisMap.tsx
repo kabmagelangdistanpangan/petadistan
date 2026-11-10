@@ -30,6 +30,7 @@ export default function GisMap({
   const markers = useRef<maplibregl.Marker[]>([]);
   const piePopup = useRef<maplibregl.Popup | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [locationError, setLocationError] = useState(false);
   const interaction = useRef({ filter, onDistrictPick });
   interaction.current = { filter, onDistrictPick };
   const cameraRef = useRef({ regionKey, regionBounds, focus });
@@ -187,6 +188,32 @@ export default function GisMap({
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl(), "top-right");
+    const geolocate = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+      trackUserLocation: false,
+      showUserLocation: true,
+      showAccuracyCircle: true,
+      fitBoundsOptions: { maxZoom: 16 },
+    });
+    map.addControl(geolocate, "top-right");
+    geolocate.on("error", () => setLocationError(true));
+    geolocate.on("geolocate", () => setLocationError(false));
+    const geolocateButton = map.getContainer().querySelector<HTMLButtonElement>(".maplibregl-ctrl-geolocate");
+    const localizeGeolocateButton = () => {
+      if (!geolocateButton) return;
+      const label = geolocateButton.disabled
+        ? "Lokasi tidak tersedia"
+        : geolocateButton.classList.contains("maplibregl-ctrl-geolocate-active-error") || geolocateButton.classList.contains("maplibregl-ctrl-geolocate-background-error")
+          ? "Lokasi tidak ditemukan"
+          : "Tampilkan lokasi saya";
+      if (geolocateButton.title !== label) geolocateButton.title = label;
+      if (geolocateButton.getAttribute("aria-label") !== label) geolocateButton.setAttribute("aria-label", label);
+    };
+    const locationButtonObserver = geolocateButton ? new MutationObserver(localizeGeolocateButton) : null;
+    if (geolocateButton) {
+      locationButtonObserver?.observe(geolocateButton, { attributes: true, attributeFilter: ["aria-label", "class", "disabled", "title"] });
+    }
+    localizeGeolocateButton();
     map.addControl(new maplibregl.ScaleControl({}), "bottom-right");
     map.on("load", () => {
       map.addSource("esri", {
@@ -221,7 +248,7 @@ export default function GisMap({
       const ids = [...added.current].flatMap((id) => [`lyr-${id}-pt`, `lyr-${id}-line`, `lyr-${id}-fill`]);
       map.getCanvas().style.cursor = ids.length && map.queryRenderedFeatures(e.point, { layers: ids }).length ? "pointer" : "";
     });
-    return () => { piePopup.current?.remove(); readyRef.current = false; added.current.clear(); sourceData.current.clear(); mapRef.current = null; map.remove(); };
+    return () => { locationButtonObserver?.disconnect(); piePopup.current?.remove(); readyRef.current = false; added.current.clear(); sourceData.current.clear(); mapRef.current = null; map.remove(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -236,5 +263,14 @@ export default function GisMap({
   const boundsKey = regionBounds?.join(",") ?? "";
   useEffect(() => { fitCamera(true); }, [regionKey, boundsKey]);
 
-  return <div ref={el} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={el} className="h-full w-full" />
+      {locationError && (
+        <div role="status" className="absolute right-3 top-3 z-10 max-w-64 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground shadow-md">
+          Lokasi tidak ditemukan. Pastikan izin lokasi aktif dan buka halaman melalui HTTPS.
+        </div>
+      )}
+    </div>
+  );
 }

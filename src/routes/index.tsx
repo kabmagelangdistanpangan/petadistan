@@ -404,7 +404,7 @@ function Index() {
         </div>
 
         <Button variant="outline" size="icon" aria-label="Buka grafik rangkuman" title="Grafik rangkuman" onClick={() => setChartOpen(true)}
-          className="absolute right-2.5 top-[110px] h-[29px] w-[29px] rounded-md bg-card shadow-md"><BarChart3 className="h-4 w-4" /></Button>
+          className="absolute right-2.5 top-[150px] h-[29px] w-[29px] rounded-md bg-card shadow-md"><BarChart3 className="h-4 w-4" /></Button>
 
         {mapPies.length > 0 && (
           <div aria-label="Legenda pupuk" className="absolute bottom-8 left-3 rounded-lg border border-border bg-card/95 px-3 py-2 text-[11px] shadow-md">
