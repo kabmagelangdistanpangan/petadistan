@@ -190,7 +190,7 @@ export default function GisMap({
     map.addControl(new maplibregl.NavigationControl(), "top-right");
     const geolocate = new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-      trackUserLocation: false,
+      trackUserLocation: true,
       showUserLocation: true,
       showAccuracyCircle: true,
       fitBoundsOptions: { maxZoom: 16 },
@@ -205,13 +205,15 @@ export default function GisMap({
         ? "Lokasi tidak tersedia"
         : geolocateButton.classList.contains("maplibregl-ctrl-geolocate-active-error") || geolocateButton.classList.contains("maplibregl-ctrl-geolocate-background-error")
           ? "Lokasi tidak ditemukan"
-          : "Tampilkan lokasi saya";
+          : geolocateButton.classList.contains("maplibregl-ctrl-geolocate-active") || geolocateButton.classList.contains("maplibregl-ctrl-geolocate-background")
+            ? "Matikan lokasi saya"
+            : "Tampilkan lokasi saya";
       if (geolocateButton.title !== label) geolocateButton.title = label;
       if (geolocateButton.getAttribute("aria-label") !== label) geolocateButton.setAttribute("aria-label", label);
     };
     const locationButtonObserver = geolocateButton ? new MutationObserver(localizeGeolocateButton) : null;
     if (geolocateButton) {
-      locationButtonObserver?.observe(geolocateButton, { attributes: true, attributeFilter: ["aria-label", "class", "disabled", "title"] });
+      locationButtonObserver?.observe(geolocateButton, { attributes: true, attributeFilter: ["aria-label", "aria-pressed", "class", "disabled", "title"] });
     }
     localizeGeolocateButton();
     map.addControl(new maplibregl.ScaleControl({}), "bottom-right");
