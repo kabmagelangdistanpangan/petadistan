@@ -2,7 +2,7 @@
 export function parseCoordinate(text: string): [number, number] | null {
   const nums = text.replace(/[°]/g, " ").match(/-?\d+(?:[.,]\d+)?/g);
   if (!nums || nums.length !== 2 || !/^[\s\d.,°\-NSEWnsew]+$/.test(text.trim())) return null;
-  const [a, b] = nums.map((n) => Number(n.replace(",", ".")));
+  const a = Number(nums[0]!.replace(",", ".")), b = Number(nums[1]!.replace(",", "."));
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
   const valid = (lat: number, lng: number) => Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
   // Longitude in Indonesia is ~95..141, latitude ~-11..6: pick the order that fits.
