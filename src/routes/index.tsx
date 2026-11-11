@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
@@ -205,12 +205,14 @@ function Index() {
     return a?.status === "ready" && !a.hidden ? [regionalViews[r.id]?.bounds ?? null] : [];
   })), [orderedRows, active, regionalViews]);
   const regionScope = effectiveRegion.desa || effectiveRegion.kecamatan || "Se-Kabupaten";
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-      <aside className="flex w-[360px] shrink-0 flex-col border-r border-border bg-sidebar">
+    <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+      <aside aria-hidden={!sidebarOpen} className={`flex shrink-0 flex-col overflow-hidden border-border bg-sidebar transition-[width] duration-300 ${sidebarOpen ? "w-[min(360px,85vw)] border-r" : "w-0"}`}>
+        <div className="flex h-full w-[min(360px,85vw)] flex-col">
         <header className="bg-primary px-4 py-3 text-primary-foreground">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -221,6 +223,9 @@ function Index() {
               </div>
             </div>
             <div className="flex gap-1">
+              <button aria-label="Sembunyikan panel" title="Sembunyikan panel" onClick={() => setSidebarOpen(false)} className="rounded-md p-2 hover:bg-primary-foreground/15">
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
               <button aria-label="Muat ulang data" onClick={() => sheet.refetch()} className="rounded-md p-2 hover:bg-primary-foreground/15">
                 <RefreshCw className={`h-4 w-4 ${sheet.isFetching ? "animate-spin" : ""}`} />
               </button>
@@ -382,6 +387,7 @@ function Index() {
           </DndContext>
         </div>
         <footer className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground">Data diperbarui otomatis tiap 60 detik</footer>
+        </div>
       </aside>
 
       <main className="relative min-w-0 flex-1">
@@ -392,6 +398,12 @@ function Index() {
         </ClientOnly>
 
         <div className="absolute left-3 right-12 top-3 flex flex-wrap items-start gap-2">
+        {!sidebarOpen && (
+          <Button variant="outline" aria-label="Tampilkan panel peta" title="Tampilkan panel peta" onClick={() => setSidebarOpen(true)} className="relative h-10 w-10 shrink-0 bg-card p-0 shadow-md">
+            <PanelLeftOpen className="h-4 w-4" />
+            {mapLayers.length > 0 && <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">{mapLayers.length}</span>}
+          </Button>
+        )}
         <div className="flex shrink-0 overflow-hidden rounded-lg border border-border bg-card shadow-md">
           <Button size="sm" variant="ghost" onClick={() => setSatellite(false)} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${!satellite ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
             <MapIcon className="h-3.5 w-3.5" />Peta
