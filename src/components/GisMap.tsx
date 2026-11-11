@@ -20,8 +20,8 @@ const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 export default function GisMap({
-   layers, focus, satellite, regionKey, regionBounds, pies = [], filter, onDistrictPick,
-}: { layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
+   layers, focus, satellite, regionKey, regionBounds, pies = [], filter, onDistrictPick, pin = null, onPinClear,
+}: { pin?: [number, number] | null; onPinClear?: () => void; layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
@@ -261,6 +261,28 @@ export default function GisMap({
     fitCamera(regionKey !== "|");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
+
+  const pinClear = useRef(onPinClear);
+  pinClear.current = onPinClear;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !pin) return;
+    const node = document.createElement("div");
+    node.className = "coord-pin";
+    node.innerHTML = '<svg width="30" height="40" viewBox="0 0 24 32"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="#dc2626" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="12" r="4.5" fill="#fff"/></svg>';
+    const box = document.createElement("div");
+    box.style.fontSize = "12px";
+    box.innerHTML = `<div style="font-weight:600;margin-bottom:2px">Titik Koordinat</div><div>Lintang: ${pin[1].toFixed(6)}</div><div>Bujur: ${pin[0].toFixed(6)}</div>`;
+    const btn = document.createElement("button");
+    btn.textContent = "Hapus Pin";
+    btn.setAttribute("style", "margin-top:6px;width:100%;border-radius:6px;background:#dc2626;color:#fff;padding:4px 8px;font-weight:600");
+    btn.onclick = () => pinClear.current?.();
+    box.appendChild(btn);
+    const marker = new maplibregl.Marker({ element: node, anchor: "bottom" }).setLngLat(pin)
+      .setPopup(new maplibregl.Popup({ offset: 36 }).setDOMContent(box)).addTo(map);
+    map.flyTo({ center: pin, zoom: 16, speed: 1.6 });
+    return () => { marker.remove(); };
+  }, [pin?.[0], pin?.[1]]);
 
   const boundsKey = regionBounds?.join(",") ?? "";
   useEffect(() => { fitCamera(true); }, [regionKey, boundsKey]);
