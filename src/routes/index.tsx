@@ -1,10 +1,11 @@
+import { parseCoordinate } from "@/lib/coords";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
-  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3, PanelLeftClose, PanelLeftOpen,
+  Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3, PanelLeftClose, PanelLeftOpen, MapPin,
 } from "lucide-react";
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
@@ -62,6 +63,9 @@ function propKeys(geo: any): string[] {
 function Index() {
   const sheetUrl = DEFAULT_SHEET;
   const [q, setQ] = useState("");
+  const [pin, setPin] = useState<[number, number] | null>(null);
+  const coord = useMemo(() => parseCoordinate(q), [q]);
+  const clearSearch = () => { setQ(""); setPin(null); };
   const [active, setActive] = useState<Record<string, Active>>({});
   const [manualColors, setManualColors] = useState<Record<string, string>>({});
   const [tiers, setTiers] = useState<Record<string, TierSetting>>({});
@@ -119,7 +123,7 @@ function Index() {
     setManualOrder(true);
   };
   const groups = useMemo(() => {
-    const s = q.trim().toLowerCase();
+    const s = coord ? "" : q.trim().toLowerCase();
     const g: [string, MapRow[]][] = [];
     for (const r of orderedRows) {
       if (s && !`${r.nama} ${r.kategori} ${r.keterangan}`.toLowerCase().includes(s)) continue;
@@ -236,10 +240,15 @@ function Index() {
         <div className="border-b border-border p-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari peta…"
+            <input value={q} onChange={(e) => { setQ(e.target.value); if (!e.target.value.trim()) setPin(null); }} onKeyDown={(e) => { if (e.key === "Enter" && coord) setPin(coord); }} placeholder="Cari peta atau koordinat…"
               className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            {q && <button aria-label="Hapus pencarian" onClick={() => setQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="h-4 w-4" /></button>}
+            {q && <button aria-label="Hapus pencarian" onClick={clearSearch} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"><X className="h-4 w-4" /></button>}
           </div>
+          {coord && (
+            <button onClick={() => setPin(coord)} className="mt-2 flex w-full items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-primary/10">
+              <MapPin className="h-4 w-4 shrink-0" /><span>Tuju lokasi koordinat <span className="font-normal text-muted-foreground tabular-nums">({coord[1].toFixed(5)}, {coord[0].toFixed(5)})</span></span>
+            </button>
+          )}
           <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
             <span>{rows.length} peta · {mapLayers.length} aktif</span>
             {Object.keys(active).length > 0 && <button onClick={() => setActive({})} className="font-medium text-primary hover:underline">Matikan semua</button>}
@@ -393,7 +402,7 @@ function Index() {
       <main className="relative min-w-0 flex-1">
         <ClientOnly fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
           <Suspense fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} filter={effectiveRegion} onDistrictPick={(kecamatan) => setRegion({ kecamatan, desa: "" })} />
+            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} filter={effectiveRegion} onDistrictPick={(kecamatan) => setRegion({ kecamatan, desa: "" })} pin={pin} onPinClear={clearSearch} />
           </Suspense>
         </ClientOnly>
 
