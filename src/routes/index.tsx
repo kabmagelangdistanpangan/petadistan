@@ -70,7 +70,7 @@ function Index() {
   const [manualColors, setManualColors] = useState<Record<string, string>>({});
   const [tiers, setTiers] = useState<Record<string, TierSetting>>({});
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
-  const [satellite, setSatellite] = useState(false);
+  const [satellite, setSatellite] = useState<false | "google" | "esri">(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [manualOrder, setManualOrder] = useState(false);
@@ -417,8 +417,11 @@ function Index() {
           <Button size="sm" variant="ghost" onClick={() => setSatellite(false)} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${!satellite ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
             <MapIcon className="h-3.5 w-3.5" />Peta
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSatellite(true)} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${satellite ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
-            <Satellite className="h-3.5 w-3.5" />Satelit
+          <Button size="sm" variant="ghost" onClick={() => setSatellite("google")} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${satellite === "google" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
+            <Satellite className="h-3.5 w-3.5" />Google Satelit
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSatellite("esri")} className={`h-10 gap-1.5 rounded-none px-3 text-xs ${satellite === "esri" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" : "hover:bg-accent"}`}>
+            Esri
           </Button>
         </div>
         <RegionControls filter={effectiveRegion} options={regionChoices} onChange={setRegion} />

@@ -21,7 +21,7 @@ const esc = (s: unknown) =>
 
 export default function GisMap({
    layers, focus, satellite, regionKey, regionBounds, pies = [], filter, onDistrictPick, pin = null, onPinClear,
-}: { pin?: [number, number] | null; onPinClear?: () => void; layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: boolean; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
+}: { pin?: [number, number] | null; onPinClear?: () => void; layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: false | "google" | "esri"; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
@@ -161,7 +161,7 @@ export default function GisMap({
     if (!map || !readyRef.current) return;
     for (const ly of map.getStyle().layers) {
       if (ly.id.startsWith("lyr-")) continue;
-      const vis = ly.id === "satellite" ? satRef.current : !satRef.current || ly.type === "symbol";
+      const vis = ly.id === "satellite" ? satRef.current === "esri" : ly.id === "sat-google" ? satRef.current === "google" : !satRef.current || ly.type === "symbol";
       map.setLayoutProperty(ly.id, "visibility", vis ? "visible" : "none");
     }
   };
@@ -223,8 +223,14 @@ export default function GisMap({
         tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
         attribution: "Imagery © Esri",
       });
+      map.addSource("google", {
+        type: "raster", tileSize: 256, maxzoom: 20,
+        tiles: ["https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", "https://mt2.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", "https://mt3.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"],
+        attribution: "Imagery © Google",
+      });
       const first = map.getStyle().layers[0]?.id;
       map.addLayer({ id: "satellite", type: "raster", source: "esri", layout: { visibility: "none" } }, first);
+      map.addLayer({ id: "sat-google", type: "raster", source: "google", layout: { visibility: "none" } }, first);
       readyRef.current = true;
       setMapReady(true);
       applyBasemap();
