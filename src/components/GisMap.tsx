@@ -171,7 +171,9 @@ export default function GisMap({
     if (!map || !readyRef.current) return;
     const camera = cameraRef.current;
     const layer = layersRef.current.find((item) => item.id === camera.focus?.id);
-    const bounds = regional ? camera.regionBounds : layer ? bbox(layer.data) : null;
+    const bounds = regional
+      ? camera.regionKey !== "|" ? camera.regionBounds : null
+      : layer ? bbox(layer.data) : null;
     if (!bounds) return;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     map.fitBounds(bounds, { padding: { top: 115, bottom: 45, left: 35, right: 45 }, maxZoom: 16, duration: reducedMotion ? 0 : 700 });
@@ -290,8 +292,7 @@ export default function GisMap({
     return () => { marker.remove(); };
   }, [pin?.[0], pin?.[1]]);
 
-  const boundsKey = regionBounds?.join(",") ?? "";
-  useEffect(() => { fitCamera(true); }, [regionKey, boundsKey]);
+  useEffect(() => { fitCamera(true); }, [regionKey]);
 
   return (
     <div className="relative h-full w-full">

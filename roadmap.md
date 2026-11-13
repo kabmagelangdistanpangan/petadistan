@@ -14,3 +14,4 @@
 - [x] Merge equal categories into one sidebar block and drag whole categories.
 - [x] Auto-detect tiered layers (Ketinggian, Kondisi Baik/Rusak, etc.) with on/off switch, per-tier colors, legend and per-tier recap.
 - [x] Collapsible sidebar for phones (default open) and GPS on/off toggle.
+- [x] Keep map camera fixed when layers are toggled; retain zooming for explicit focus and region changes.
