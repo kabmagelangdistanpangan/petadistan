@@ -6,6 +6,7 @@ import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, us
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
   Search, Settings, RefreshCw, Satellite, Map as MapIcon, Loader2, AlertCircle, ChevronDown, X, Eye, EyeOff, RotateCcw, BarChart3, PanelLeftClose, PanelLeftOpen, MapPin,
+  Crosshair,
 } from "lucide-react";
 import { DEFAULT_SHEET, downloadGeoJSON, isBoundaryLayer, parseSheetUrl, rowsFromCSV, type MapRow } from "@/lib/gis";
 import { resolveLayerColor } from "@/lib/layer-colors";
@@ -163,7 +164,6 @@ function Index() {
       const data = await downloadGeoJSON(r.link, (loaded, total) =>
         patch(r.id, { loaded, total }));
       patch(r.id, { status: "ready", data });
-      setFocus({ id: r.id, n: Date.now() });
     } catch (e) {
       patch(r.id, { status: "error", error: (e as Error).message });
     }
@@ -302,12 +302,16 @@ function Index() {
                           {a?.status === "loading" && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />}
                           {a?.status === "ready" && (
                             <>
+                              <button aria-label={`Fokus ke layer ${r.nama}`} title="Fokus ke layer" onClick={() => setFocus({ id: r.id, n: Date.now() })}
+                                className="shrink-0 text-muted-foreground hover:text-primary">
+                                <Crosshair className="h-3.5 w-3.5" />
+                              </button>
                               <Button variant="ghost" size="icon" aria-label={`Pengaturan warna dan label ${r.nama}`} title="Warna, label dan rekap" onClick={() => patch(r.id, { open: !a.open })}
                                 className={`h-5 w-5 shrink-0 p-0 hover:text-primary ${a.open || a.label || manualColors[r.id] ? "text-primary" : "text-muted-foreground"}`}>
                                 <Settings className="h-3.5 w-3.5" />
                               </Button>
                               <button aria-label={a.hidden ? "Tampilkan layer" : "Sembunyikan layer"} title={a.hidden ? "Tampilkan" : "Sembunyikan"}
-                                onClick={() => { patch(r.id, { hidden: !a.hidden }); if (a.hidden) setFocus({ id: r.id, n: Date.now() }); }}
+                                onClick={() => patch(r.id, { hidden: !a.hidden })}
                                 className="shrink-0 text-muted-foreground hover:text-primary">
                                 {a.hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                               </button>
