@@ -76,6 +76,7 @@ function Index() {
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
   const [manualOrder, setManualOrder] = useState(false);
   const [region, setRegion] = useState<RegionFilter>({ kecamatan: "", desa: "" });
+  const [regionZoomRequest, setRegionZoomRequest] = useState(0);
   const [chartOpen, setChartOpen] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -203,12 +204,16 @@ function Index() {
     const v = regionalViews[r.id];
     return a?.status === "ready" && v && !isFertilizerLayer(r.kategori, r.nama) ? [{ id: r.id, nama: r.nama, color: colorFor(r), count: v.count, summary: v.summary, chart: regionBars(a.data, effectiveRegion) }] : [];
   }), [orderedRows, active, regionalViews, manualColors, effectiveRegion]);
-  const pickRegion = (name: string) => setRegion((cur) => (cur.kecamatan ? { ...cur, desa: name } : { kecamatan: name, desa: "" }));
+  const pickRegion = (name: string) => changeRegion(effectiveRegion.kecamatan ? { ...effectiveRegion, desa: name } : { kecamatan: name, desa: "" });
   const regionBounds = useMemo(() => mergeRegionBounds(orderedRows.flatMap((r) => {
     const a = active[r.id];
     return a?.status === "ready" && !a.hidden ? [regionalViews[r.id]?.bounds ?? null] : [];
   })), [orderedRows, active, regionalViews]);
   const regionScope = effectiveRegion.desa || effectiveRegion.kecamatan || "Se-Kabupaten";
+  const changeRegion = (next: RegionFilter) => {
+    setRegion(next);
+    setRegionZoomRequest((request) => request + 1);
+  };
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const loadingCount = Object.values(active).filter((a) => a.status === "loading").length;
 
@@ -406,7 +411,7 @@ function Index() {
       <main className="relative min-w-0 flex-1">
         <ClientOnly fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
           <Suspense fallback={<div className="grid h-full place-items-center bg-muted"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-            <GisMap layers={mapLayers} focus={focus} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} filter={effectiveRegion} onDistrictPick={(kecamatan) => setRegion({ kecamatan, desa: "" })} pin={pin} onPinClear={clearSearch} />
+            <GisMap layers={mapLayers} focus={focus} regionZoomRequest={regionZoomRequest} satellite={satellite} regionKey={`${effectiveRegion.kecamatan}|${effectiveRegion.desa}`} regionBounds={regionBounds} pies={mapPies} filter={effectiveRegion} onDistrictPick={(kecamatan) => changeRegion({ kecamatan, desa: "" })} pin={pin} onPinClear={clearSearch} />
           </Suspense>
         </ClientOnly>
 
@@ -428,7 +433,7 @@ function Index() {
             Esri
           </Button>
         </div>
-        <RegionControls filter={effectiveRegion} options={regionChoices} onChange={setRegion} />
+        <RegionControls filter={effectiveRegion} options={regionChoices} onChange={changeRegion} />
         </div>
 
         <Button variant="outline" size="icon" aria-label="Buka grafik rangkuman" title="Grafik rangkuman" onClick={() => setChartOpen(true)}

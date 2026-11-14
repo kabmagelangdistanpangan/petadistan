@@ -20,8 +20,8 @@ const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
 export default function GisMap({
-   layers, focus, satellite, regionKey, regionBounds, pies = [], filter, onDistrictPick, pin = null, onPinClear,
-}: { pin?: [number, number] | null; onPinClear?: () => void; layers: MapLayer[]; focus: { id: string; n: number } | null; satellite: false | "google" | "esri"; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
+   layers, focus, regionZoomRequest, satellite, regionKey, regionBounds, pies = [], filter, onDistrictPick, pin = null, onPinClear,
+}: { pin?: [number, number] | null; onPinClear?: () => void; layers: MapLayer[]; focus: { id: string; n: number } | null; regionZoomRequest: number; satellite: false | "google" | "esri"; regionKey: string; regionBounds: [number, number, number, number] | null; pies?: MapPies; filter: RegionFilter; onDistrictPick: (name: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const readyRef = useRef(false);
@@ -237,7 +237,6 @@ export default function GisMap({
       setMapReady(true);
       applyBasemap();
       sync();
-      fitCamera(cameraRef.current.regionKey !== "|");
     });
     map.on("click", (e) => {
       if ((e.originalEvent.target as HTMLElement | null)?.closest?.(".gis-pie")) return;
@@ -266,9 +265,14 @@ export default function GisMap({
   useEffect(applyBasemap, [satellite]);
 
   useEffect(() => {
-    fitCamera(regionKey !== "|");
+    fitCamera(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
+
+  useEffect(() => {
+    fitCamera(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regionZoomRequest]);
 
   const pinClear = useRef(onPinClear);
   pinClear.current = onPinClear;
@@ -291,8 +295,6 @@ export default function GisMap({
     map.flyTo({ center: pin, zoom: 16, speed: 1.6 });
     return () => { marker.remove(); };
   }, [pin?.[0], pin?.[1]]);
-
-  useEffect(() => { fitCamera(true); }, [regionKey]);
 
   return (
     <div className="relative h-full w-full">
